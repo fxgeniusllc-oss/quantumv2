@@ -1,0 +1,28 @@
+{
+  "name": "quantum-defi-domination",
+  "version": "1.0.0",
+  "description": "Advanced DeFi trading system with MEV extraction and flashloan capabilities",
+  "main": "ultimate-defi-domination/engines/node_engine/tx_executor.js",
+  "scripts": {
+    "start": "node ultimate-defi-domination/engines/node_engine/tx_executor.js",
+    "test": "jest"
+  },
+  "keywords": [
+    "defi",
+    "trading",
+    "flashbots",
+    "mev",
+    "ethereum"
+  ],
+  "author": "Quantum Market Domination Team",
+  "license": "PROPRIETARY",
+  "dependencies": {
+    "ethers": "^6.8.0",
+    "@flashbots/ethers-provider-bundle": "^1.0.0",
+    "dotenv": "^16.3.1",
+    "web3": "^4.2.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
