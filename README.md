@@ -342,7 +342,8 @@ class QuantumSystemMonitor:
 
 The primary data collection engine designed for total market intelligence and predictive dominance.
 
-```pythonclass QuantumMarketDominationCollector:
+```python
+class QuantumMarketDominationCollector:
     """
     ULTIMATE MARKET INTELLIGENCE SYSTEM
     Designed for total market penetration and predictive dominance
@@ -554,7 +555,6 @@ async def quantum_market_domination():
 if __name__ == "__main__":
     asyncio.run(quantum_market_domination())
 ```
-```
 
 **Key Features:**
 - **Multi-Exchange Integration**: Simultaneous connections to Binance, Bybit, OKX, KuCoin, Huobi, Kraken
@@ -618,7 +618,8 @@ ultimate-defi-domination/
 
 ### DeFi Configuration
 
-```pythonclass DominanceConfig:
+```python
+class DominanceConfig:
     load_dotenv()
 
     # Blockchain Configurations
@@ -702,7 +703,8 @@ class SecretManager:
 
 ### Python Strategy Engine
 
-```pythonclass StrategyEngine:
+```python
+class StrategyEngine:
     def __init__(self, config):
         self.config = config
         self.ml_model = RandomForestRegressor()
