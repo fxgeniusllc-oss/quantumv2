@@ -8,6 +8,9 @@ import os
 import logging
 from typing import Dict, List
 
+# Add path for importing modules with hyphens
+sys.path.insert(0, os.path.abspath('.'))
+
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger('Validator')
@@ -196,8 +199,16 @@ class ReadmeValidator:
         logger.info("\n[7] Validating DeFi Components...")
         
         try:
-            from ultimate_defi_domination.core.config import DominanceConfig
-            config = DominanceConfig()
+            # Import using importlib to handle hyphens in module name
+            import importlib.util
+            spec = importlib.util.spec_from_file_location(
+                "defi_config",
+                "ultimate-defi-domination/core/config.py"
+            )
+            config_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(config_module)
+            
+            config = config_module.DominanceConfig()
             
             # Validate chains
             assert 'ethereum' in config.CHAINS
@@ -215,7 +226,13 @@ class ReadmeValidator:
             self.results['failed'].append(f"✗ DeFi config validation failed: {e}")
         
         try:
-            from ultimate_defi_domination.engines.python_engine.strategy_engine import StrategyEngine
+            import importlib.util
+            spec = importlib.util.spec_from_file_location(
+                "strategy_engine",
+                "ultimate-defi-domination/engines/python_engine/strategy_engine.py"
+            )
+            strategy_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(strategy_module)
             self.results['passed'].append("✓ Python Strategy Engine exists")
         except Exception as e:
             self.results['failed'].append(f"✗ Strategy engine validation failed: {e}")
