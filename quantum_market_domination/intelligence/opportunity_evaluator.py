@@ -1,376 +1,435 @@
 """
-Opportunity Evaluator
-Evaluates and scores trading opportunities based on multiple factors
+OPPORTUNITY DETECTION AND SCORING
+Evaluates and scores trading opportunities across multiple dimensions
 """
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass, field
+from typing import Dict, List, Optional
 from enum import Enum
 import logging
 
 
 class OpportunityType(Enum):
     """Types of trading opportunities"""
-    TREND_FOLLOWING = "trend_following"
-    MEAN_REVERSION = "mean_reversion"
+    TREND = "trend"
     BREAKOUT = "breakout"
+    REVERSAL = "reversal"
     ARBITRAGE = "arbitrage"
-    MOMENTUM = "momentum"
+    VOLATILITY = "volatility"
     CORRELATION = "correlation"
-
-
-@dataclass
-class TradingOpportunity:
-    """Trading opportunity data structure"""
-    symbol: str
-    opportunity_type: OpportunityType
-    score: float
-    confidence: float
-    entry_price: float
-    target_price: float
-    stop_loss: float
-    risk_reward_ratio: float
-    expected_return: float
-    timeframe: str
-    factors: Dict = field(default_factory=dict)
-    metadata: Dict = field(default_factory=dict)
-    
-    def __post_init__(self):
-        """Validate opportunity parameters"""
-        if self.score < 0 or self.score > 1:
-            raise ValueError("Score must be between 0 and 1")
-        if self.confidence < 0 or self.confidence > 1:
-            raise ValueError("Confidence must be between 0 and 1")
-        if self.risk_reward_ratio < 0:
-            raise ValueError("Risk-reward ratio must be positive")
 
 
 class OpportunityEvaluator:
     """
-    Advanced opportunity detection and evaluation system
-    Scores and ranks trading opportunities across multiple dimensions
+    Evaluates and scores trading opportunities using multi-dimensional analysis
     """
     
-    def __init__(self, config: Optional[Dict] = None):
+    def __init__(self, min_score: float = 0.6):
+        """
+        Initialize opportunity evaluator
+        
+        Args:
+            min_score: Minimum score threshold (0-1) for valid opportunities
+        """
         self.logger = logging.getLogger('OpportunityEvaluator')
-        self.config = config or {}
-        
-        # Evaluation parameters
-        self.min_score_threshold = 0.6  # Minimum score to consider
-        self.min_confidence = 0.5  # Minimum confidence level
-        self.min_risk_reward = 1.5  # Minimum risk-reward ratio
-        
-        # Weighting factors for composite score
-        self.score_weights = {
-            'technical': 0.25,
-            'momentum': 0.20,
-            'volatility': 0.15,
+        self.min_score = min_score
+        self.opportunities: List[Dict] = []
+        self.scoring_weights = {
+            'technical': 0.3,
+            'volatility': 0.2,
             'volume': 0.15,
-            'correlation': 0.10,
-            'ml_prediction': 0.15
+            'risk_reward': 0.25,
+            'timing': 0.1
         }
         
-        # Opportunity storage
-        self.opportunities: List[TradingOpportunity] = []
-        
-    def evaluate_trend_opportunity(self, 
-                                   symbol: str,
-                                   price_data: pd.DataFrame,
-                                   indicators: Dict) -> Optional[TradingOpportunity]:
+    def evaluate_trend_opportunity(self, symbol: str, data: pd.DataFrame) -> Dict:
         """
         Evaluate trend-following opportunity
         
         Args:
-            symbol: Trading symbol
-            price_data: Historical price data
-            indicators: Technical indicators
+            symbol: Trading pair symbol
+            data: Historical price data
             
         Returns:
-            TradingOpportunity if valid, None otherwise
+            Dict with opportunity details and score
         """
-        if len(price_data) < 50:
-            return None
+        if len(data) < 50:
+            return {'valid': False, 'reason': 'Insufficient data'}
             
-        current_price = price_data['close'].iloc[-1]
+        # Calculate trend indicators
+        sma_20 = data['close'].rolling(20).mean()
+        sma_50 = data['close'].rolling(50).mean()
         
-        # Check trend indicators
-        sma_20 = indicators.get('sma_20', 0)
-        sma_50 = indicators.get('sma_50', 0)
-        sma_200 = indicators.get('sma_200', 0)
+        current_price = data['close'].iloc[-1]
+        sma_20_current = sma_20.iloc[-1]
+        sma_50_current = sma_50.iloc[-1]
         
-        # Bullish trend: price > sma_20 > sma_50 > sma_200
-        trend_alignment = (
-            current_price > sma_20 > sma_50 > 0 and
-            sma_20 > sma_50
-        )
-        
-        if not trend_alignment:
-            return None
+        # Trend strength
+        trend_strength = 0.0
+        if sma_20_current > sma_50_current:
+            # Uptrend
+            trend_strength = (sma_20_current - sma_50_current) / sma_50_current
+            direction = "long"
+        else:
+            # Downtrend
+            trend_strength = (sma_50_current - sma_20_current) / sma_50_current
+            direction = "short"
             
-        # Calculate scores
-        trend_strength = min(1.0, (current_price - sma_50) / sma_50 * 10)
-        momentum_score = self._calculate_momentum_score(price_data, indicators)
-        volume_score = self._calculate_volume_score(price_data, indicators)
+        # Price position relative to SMAs
+        price_position_score = 0.0
+        if direction == "long" and current_price > sma_20_current > sma_50_current:
+            price_position_score = 1.0
+        elif direction == "short" and current_price < sma_20_current < sma_50_current:
+            price_position_score = 1.0
+        else:
+            price_position_score = 0.5
+            
+        # Volume confirmation
+        volume_score = self._calculate_volume_score(data)
         
-        # Composite score
+        # Calculate overall score
+        technical_score = min(abs(trend_strength) * 10, 1.0)
         score = (
-            0.4 * trend_strength +
-            0.3 * momentum_score +
-            0.3 * volume_score
-        )
+            technical_score * self.scoring_weights['technical'] +
+            price_position_score * self.scoring_weights['technical'] +
+            volume_score * self.scoring_weights['volume']
+        ) / (self.scoring_weights['technical'] * 2 + self.scoring_weights['volume'])
         
-        # Calculate entry, target, stop loss
-        atr = indicators.get('atr', current_price * 0.02)
-        entry_price = current_price
-        target_price = entry_price + (atr * 3)  # 3 ATR target
-        stop_loss = entry_price - (atr * 1.5)  # 1.5 ATR stop
+        opportunity = {
+            'valid': score >= self.min_score,
+            'type': OpportunityType.TREND.value,
+            'symbol': symbol,
+            'direction': direction,
+            'score': score,
+            'trend_strength': trend_strength,
+            'price': current_price,
+            'entry': current_price,
+            'stop_loss': sma_50_current if direction == "long" else sma_20_current * 1.02,
+            'target': current_price * (1 + abs(trend_strength) * 2) if direction == "long" 
+                     else current_price * (1 - abs(trend_strength) * 2),
+            'confidence': score
+        }
         
-        risk_reward = (target_price - entry_price) / (entry_price - stop_loss)
-        expected_return = (target_price - entry_price) / entry_price
-        
-        if risk_reward < self.min_risk_reward:
-            return None
-            
-        return TradingOpportunity(
-            symbol=symbol,
-            opportunity_type=OpportunityType.TREND_FOLLOWING,
-            score=score,
-            confidence=0.7,
-            entry_price=entry_price,
-            target_price=target_price,
-            stop_loss=stop_loss,
-            risk_reward_ratio=risk_reward,
-            expected_return=expected_return,
-            timeframe='4H',
-            factors={
-                'trend_strength': trend_strength,
-                'momentum': momentum_score,
-                'volume': volume_score
-            }
-        )
-        
-    def evaluate_mean_reversion_opportunity(self,
-                                           symbol: str,
-                                           price_data: pd.DataFrame,
-                                           indicators: Dict) -> Optional[TradingOpportunity]:
-        """
-        Evaluate mean reversion opportunity
-        
-        Args:
-            symbol: Trading symbol
-            price_data: Historical price data
-            indicators: Technical indicators
-            
-        Returns:
-            TradingOpportunity if valid, None otherwise
-        """
-        if len(price_data) < 20:
-            return None
-            
-        current_price = price_data['close'].iloc[-1]
-        
-        # Check Bollinger Bands
-        bb_upper = indicators.get('bb_upper', 0)
-        bb_lower = indicators.get('bb_lower', 0)
-        bb_middle = indicators.get('bb_middle', 0)
-        
-        if bb_upper == 0 or bb_lower == 0:
-            return None
-            
-        # Check for oversold condition
-        rsi = indicators.get('rsi', 50)
-        
-        # Mean reversion setup: price near lower band and RSI oversold
-        oversold = current_price <= bb_lower * 1.02 and rsi < 30
-        
-        if not oversold:
-            return None
-            
-        # Calculate reversion scores
-        deviation = abs(current_price - bb_middle) / bb_middle
-        reversion_score = min(1.0, deviation * 10)
-        rsi_score = max(0, (30 - rsi) / 30)  # Higher score for more oversold
-        
-        score = 0.6 * reversion_score + 0.4 * rsi_score
-        
-        # Calculate targets
-        entry_price = current_price
-        target_price = bb_middle  # Target mean reversion to middle band
-        stop_loss = bb_lower * 0.98  # Below lower band
-        
-        risk_reward = (target_price - entry_price) / (entry_price - stop_loss)
-        expected_return = (target_price - entry_price) / entry_price
-        
-        if risk_reward < self.min_risk_reward:
-            return None
-            
-        return TradingOpportunity(
-            symbol=symbol,
-            opportunity_type=OpportunityType.MEAN_REVERSION,
-            score=score,
-            confidence=0.65,
-            entry_price=entry_price,
-            target_price=target_price,
-            stop_loss=stop_loss,
-            risk_reward_ratio=risk_reward,
-            expected_return=expected_return,
-            timeframe='1H',
-            factors={
-                'deviation': deviation,
-                'rsi': rsi,
-                'reversion_score': reversion_score
-            }
-        )
-        
-    def evaluate_breakout_opportunity(self,
-                                     symbol: str,
-                                     price_data: pd.DataFrame,
-                                     indicators: Dict) -> Optional[TradingOpportunity]:
+        return opportunity
+    
+    def evaluate_breakout_opportunity(self, symbol: str, data: pd.DataFrame) -> Dict:
         """
         Evaluate breakout opportunity
         
         Args:
-            symbol: Trading symbol
-            price_data: Historical price data
-            indicators: Technical indicators
+            symbol: Trading pair symbol
+            data: Historical price data
             
         Returns:
-            TradingOpportunity if valid, None otherwise
+            Dict with opportunity details and score
         """
-        if len(price_data) < 30:
-            return None
+        if len(data) < 20:
+            return {'valid': False, 'reason': 'Insufficient data'}
             
-        current_price = price_data['close'].iloc[-1]
-        high_20 = price_data['high'].iloc[-20:].max()
-        low_20 = price_data['low'].iloc[-20:].min()
+        # Calculate recent high/low
+        lookback = min(20, len(data))
+        recent_high = data['high'].iloc[-lookback:].max()
+        recent_low = data['low'].iloc[-lookback:].max()
+        current_price = data['close'].iloc[-1]
         
-        # Check for consolidation
-        range_width = (high_20 - low_20) / low_20
+        # Check for breakout
+        breakout_threshold = 0.02  # 2% above high or below low
         
-        # Look for breakout from consolidation
-        volatility = indicators.get('volatility_20', 0)
-        volume_ratio = indicators.get('volume_ratio', 1.0)
-        
-        # Breakout criteria
-        is_breakout = (
-            current_price > high_20 * 1.005 and  # Price above recent high
-            range_width < 0.1 and  # Recent consolidation
-            volume_ratio > 1.5  # Volume spike
-        )
-        
-        if not is_breakout:
-            return None
+        if current_price > recent_high * (1 + breakout_threshold):
+            # Bullish breakout
+            direction = "long"
+            breakout_strength = (current_price - recent_high) / recent_high
+        elif current_price < recent_low * (1 - breakout_threshold):
+            # Bearish breakout
+            direction = "short"
+            breakout_strength = (recent_low - current_price) / recent_low
+        else:
+            return {'valid': False, 'reason': 'No breakout detected'}
             
-        # Calculate breakout scores
-        breakout_strength = min(1.0, (current_price - high_20) / high_20 * 20)
-        volume_score = min(1.0, volume_ratio / 2.0)
-        consolidation_score = max(0, 1.0 - range_width * 10)
+        # Volume confirmation
+        volume_score = self._calculate_volume_score(data)
         
+        # Volatility check
+        volatility_score = self._calculate_volatility_score(data)
+        
+        # Calculate overall score
         score = (
-            0.4 * breakout_strength +
-            0.3 * volume_score +
-            0.3 * consolidation_score
-        )
+            min(abs(breakout_strength) * 10, 1.0) * self.scoring_weights['technical'] +
+            volume_score * self.scoring_weights['volume'] +
+            volatility_score * self.scoring_weights['volatility']
+        ) / (self.scoring_weights['technical'] + self.scoring_weights['volume'] + 
+             self.scoring_weights['volatility'])
         
-        # Calculate targets
-        entry_price = current_price
-        range_height = high_20 - low_20
-        target_price = high_20 + range_height  # Measured move
-        stop_loss = high_20 * 0.99  # Below breakout level
+        # Risk/reward calculation
+        risk = abs(current_price - recent_low if direction == "long" else recent_high - current_price)
+        reward = abs(breakout_strength) * current_price * 2
+        risk_reward_ratio = reward / risk if risk > 0 else 0
         
-        risk_reward = (target_price - entry_price) / (entry_price - stop_loss)
-        expected_return = (target_price - entry_price) / entry_price
+        opportunity = {
+            'valid': score >= self.min_score and risk_reward_ratio >= 2,
+            'type': OpportunityType.BREAKOUT.value,
+            'symbol': symbol,
+            'direction': direction,
+            'score': score,
+            'breakout_strength': breakout_strength,
+            'price': current_price,
+            'entry': current_price,
+            'stop_loss': recent_low if direction == "long" else recent_high,
+            'target': current_price * (1 + breakout_strength * 3) if direction == "long"
+                     else current_price * (1 - breakout_strength * 3),
+            'risk_reward': risk_reward_ratio,
+            'confidence': score
+        }
         
-        if risk_reward < self.min_risk_reward:
-            return None
-            
-        return TradingOpportunity(
-            symbol=symbol,
-            opportunity_type=OpportunityType.BREAKOUT,
-            score=score,
-            confidence=0.6,
-            entry_price=entry_price,
-            target_price=target_price,
-            stop_loss=stop_loss,
-            risk_reward_ratio=risk_reward,
-            expected_return=expected_return,
-            timeframe='15M',
-            factors={
-                'breakout_strength': breakout_strength,
-                'volume_ratio': volume_ratio,
-                'consolidation': consolidation_score
-            }
-        )
-        
-    def _calculate_momentum_score(self, price_data: pd.DataFrame, indicators: Dict) -> float:
-        """Calculate momentum score"""
-        momentum_5 = indicators.get('momentum_5', 0)
-        momentum_10 = indicators.get('momentum_10', 0)
-        
-        if momentum_5 == 0 or momentum_10 == 0:
-            return 0.5
-            
-        # Positive momentum
-        score = np.tanh(momentum_5 / price_data['close'].iloc[-1] * 100) * 0.5 + 0.5
-        return max(0, min(1, score))
-        
-    def _calculate_volume_score(self, price_data: pd.DataFrame, indicators: Dict) -> float:
-        """Calculate volume score"""
-        if 'volume' not in price_data.columns:
-            return 0.5
-            
-        volume_ratio = indicators.get('volume_ratio', 1.0)
-        
-        # Higher volume is better (up to 3x average)
-        score = min(1.0, volume_ratio / 3.0)
-        return score
-        
-    def rank_opportunities(self, opportunities: List[TradingOpportunity]) -> List[TradingOpportunity]:
+        return opportunity
+    
+    def evaluate_reversal_opportunity(self, symbol: str, data: pd.DataFrame) -> Dict:
         """
-        Rank opportunities by composite score
+        Evaluate mean reversion opportunity
         
         Args:
-            opportunities: List of trading opportunities
+            symbol: Trading pair symbol
+            data: Historical price data
             
         Returns:
-            Sorted list of opportunities
+            Dict with opportunity details and score
         """
-        # Filter by minimum thresholds
-        filtered = [
-            opp for opp in opportunities
-            if opp.score >= self.min_score_threshold and
-               opp.confidence >= self.min_confidence and
-               opp.risk_reward_ratio >= self.min_risk_reward
-        ]
+        if len(data) < 20:
+            return {'valid': False, 'reason': 'Insufficient data'}
+            
+        # Calculate Bollinger Bands
+        sma_20 = data['close'].rolling(20).mean()
+        std_20 = data['close'].rolling(20).std()
+        upper_band = sma_20 + (std_20 * 2)
+        lower_band = sma_20 - (std_20 * 2)
         
-        # Sort by composite ranking score
-        filtered.sort(
-            key=lambda x: x.score * x.confidence * min(x.risk_reward_ratio / 2, 1.5),
-            reverse=True
-        )
+        current_price = data['close'].iloc[-1]
+        current_sma = sma_20.iloc[-1]
+        current_upper = upper_band.iloc[-1]
+        current_lower = lower_band.iloc[-1]
         
-        return filtered
+        # Check for reversal setup
+        if current_price <= current_lower:
+            # Oversold - potential long
+            direction = "long"
+            deviation = (current_lower - current_price) / current_sma
+        elif current_price >= current_upper:
+            # Overbought - potential short
+            direction = "short"
+            deviation = (current_price - current_upper) / current_sma
+        else:
+            return {'valid': False, 'reason': 'No reversal setup'}
+            
+        # RSI confirmation
+        rsi_score = self._calculate_rsi_score(data)
         
-    def add_opportunity(self, opportunity: TradingOpportunity):
-        """Add opportunity to tracking list"""
-        self.opportunities.append(opportunity)
-        self.logger.info(f"Added {opportunity.opportunity_type.value} opportunity for {opportunity.symbol}")
+        # Volume divergence check
+        volume_score = self._calculate_volume_score(data)
         
-    def get_best_opportunities(self, n: int = 5) -> List[TradingOpportunity]:
+        # Calculate overall score
+        score = (
+            min(abs(deviation) * 10, 1.0) * self.scoring_weights['technical'] +
+            rsi_score * self.scoring_weights['technical'] +
+            volume_score * self.scoring_weights['volume']
+        ) / (self.scoring_weights['technical'] * 2 + self.scoring_weights['volume'])
+        
+        opportunity = {
+            'valid': score >= self.min_score,
+            'type': OpportunityType.REVERSAL.value,
+            'symbol': symbol,
+            'direction': direction,
+            'score': score,
+            'deviation': deviation,
+            'price': current_price,
+            'entry': current_price,
+            'stop_loss': current_lower * 0.98 if direction == "long" else current_upper * 1.02,
+            'target': current_sma,
+            'confidence': score
+        }
+        
+        return opportunity
+    
+    def evaluate_volatility_opportunity(self, symbol: str, data: pd.DataFrame) -> Dict:
         """
-        Get top N opportunities
+        Evaluate volatility-based opportunity
         
         Args:
-            n: Number of opportunities to return
+            symbol: Trading pair symbol
+            data: Historical price data
             
         Returns:
-            List of best opportunities
+            Dict with opportunity details and score
         """
-        ranked = self.rank_opportunities(self.opportunities)
-        return ranked[:n]
+        if len(data) < 20:
+            return {'valid': False, 'reason': 'Insufficient data'}
+            
+        # Calculate volatility
+        returns = data['close'].pct_change().dropna()
+        current_vol = returns.iloc[-5:].std() if len(returns) >= 5 else 0
+        avg_vol = returns.std()
         
-    def clear_opportunities(self):
-        """Clear all tracked opportunities"""
-        self.opportunities = []
+        # Volatility change
+        vol_ratio = current_vol / avg_vol if avg_vol > 0 else 1.0
+        
+        # Determine strategy
+        if vol_ratio < 0.5:
+            # Low volatility - expect expansion
+            strategy = "volatility_expansion"
+            score = (1.0 - vol_ratio) * 0.7
+        elif vol_ratio > 1.5:
+            # High volatility - expect contraction
+            strategy = "volatility_contraction"
+            score = (vol_ratio - 1.0) * 0.5
+        else:
+            return {'valid': False, 'reason': 'Normal volatility regime'}
+            
+        opportunity = {
+            'valid': score >= self.min_score,
+            'type': OpportunityType.VOLATILITY.value,
+            'symbol': symbol,
+            'strategy': strategy,
+            'score': score,
+            'current_volatility': current_vol,
+            'average_volatility': avg_vol,
+            'volatility_ratio': vol_ratio,
+            'confidence': score
+        }
+        
+        return opportunity
+    
+    def _calculate_volume_score(self, data: pd.DataFrame) -> float:
+        """Calculate volume confirmation score"""
+        if 'volume' not in data.columns or len(data) < 10:
+            return 0.5  # Neutral score if no volume data
+            
+        recent_volume = data['volume'].iloc[-5:].mean()
+        avg_volume = data['volume'].iloc[-20:].mean()
+        
+        if avg_volume == 0:
+            return 0.5
+            
+        volume_ratio = recent_volume / avg_volume
+        
+        # Higher volume = higher score (capped at 1.0)
+        return min(volume_ratio / 1.5, 1.0)
+    
+    def _calculate_volatility_score(self, data: pd.DataFrame) -> float:
+        """Calculate volatility score"""
+        if len(data) < 20:
+            return 0.5
+            
+        returns = data['close'].pct_change().dropna()
+        current_vol = returns.iloc[-5:].std() if len(returns) >= 5 else 0
+        avg_vol = returns.std()
+        
+        if avg_vol == 0:
+            return 0.5
+            
+        vol_ratio = current_vol / avg_vol
+        
+        # Moderate volatility is ideal (0.8-1.2)
+        if 0.8 <= vol_ratio <= 1.2:
+            return 1.0
+        elif vol_ratio < 0.8:
+            return vol_ratio / 0.8
+        else:
+            return 1.2 / vol_ratio
+    
+    def _calculate_rsi_score(self, data: pd.DataFrame, period: int = 14) -> float:
+        """Calculate RSI-based score"""
+        if len(data) < period + 1:
+            return 0.5
+            
+        delta = data['close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        
+        current_rsi = rsi.iloc[-1]
+        
+        # Oversold (good for long) or overbought (good for short)
+        if current_rsi < 30:
+            return (30 - current_rsi) / 30  # Higher score when more oversold
+        elif current_rsi > 70:
+            return (current_rsi - 70) / 30  # Higher score when more overbought
+        else:
+            return 0.0  # Neutral zone
+    
+    def evaluate_all_opportunities(self, symbol: str, data: pd.DataFrame) -> List[Dict]:
+        """
+        Evaluate all opportunity types for a symbol
+        
+        Args:
+            symbol: Trading pair symbol
+            data: Historical price data
+            
+        Returns:
+            List of valid opportunities sorted by score
+        """
+        opportunities = []
+        
+        # Evaluate each opportunity type
+        trend_opp = self.evaluate_trend_opportunity(symbol, data)
+        if trend_opp.get('valid', False):
+            opportunities.append(trend_opp)
+            
+        breakout_opp = self.evaluate_breakout_opportunity(symbol, data)
+        if breakout_opp.get('valid', False):
+            opportunities.append(breakout_opp)
+            
+        reversal_opp = self.evaluate_reversal_opportunity(symbol, data)
+        if reversal_opp.get('valid', False):
+            opportunities.append(reversal_opp)
+            
+        volatility_opp = self.evaluate_volatility_opportunity(symbol, data)
+        if volatility_opp.get('valid', False):
+            opportunities.append(volatility_opp)
+        
+        # Sort by score (highest first)
+        opportunities.sort(key=lambda x: x.get('score', 0), reverse=True)
+        
+        self.logger.info(f"Found {len(opportunities)} valid opportunities for {symbol}")
+        return opportunities
+    
+    def get_best_opportunity(self, symbol: str, data: pd.DataFrame) -> Optional[Dict]:
+        """
+        Get the best opportunity for a symbol
+        
+        Args:
+            symbol: Trading pair symbol
+            data: Historical price data
+            
+        Returns:
+            Best opportunity dict or None
+        """
+        opportunities = self.evaluate_all_opportunities(symbol, data)
+        
+        if opportunities:
+            return opportunities[0]
+        return None
+    
+    def score_opportunity(self, opportunity: Dict) -> float:
+        """
+        Recalculate comprehensive score for an opportunity
+        
+        Args:
+            opportunity: Opportunity dict
+            
+        Returns:
+            Overall score (0-1)
+        """
+        base_score = opportunity.get('score', 0.0)
+        
+        # Adjust based on risk/reward if available
+        risk_reward = opportunity.get('risk_reward', 0)
+        if risk_reward > 0:
+            risk_reward_score = min(risk_reward / 3.0, 1.0)
+            base_score = (base_score * 0.7) + (risk_reward_score * 0.3)
+        
+        # Adjust based on confidence
+        confidence = opportunity.get('confidence', 0.5)
+        final_score = (base_score * 0.8) + (confidence * 0.2)
+        
+        return min(final_score, 1.0)

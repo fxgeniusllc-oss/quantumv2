@@ -1,274 +1,293 @@
 """
-Compression Utilities
-Data compression techniques for efficient storage and transmission
+DATA COMPRESSION UTILITIES
+Advanced compression techniques for efficient data storage and transmission
 """
 
 import zlib
 import gzip
 import bz2
 import lzma
-import pickle
 import json
-from typing import Any, Dict, Optional
+import pickle
+from typing import Any, Dict, Union
 import logging
 
 
-class CompressionEngine:
+class CompressionMethod:
+    """Available compression methods"""
+    ZLIB = "zlib"
+    GZIP = "gzip"
+    BZ2 = "bz2"
+    LZMA = "lzma"
+
+
+class DataCompressor:
     """
-    Advanced data compression engine
-    Supports multiple compression algorithms
+    Data compression utilities supporting multiple algorithms
     """
     
-    def __init__(self, config: Optional[Dict] = None):
-        self.logger = logging.getLogger('CompressionEngine')
-        self.config = config or {}
-        
-        # Default compression level (1-9, 9 is highest)
-        self.compression_level = self.config.get('COMPRESSION_LEVEL', 9)
-        
-        # Available algorithms
-        self.algorithms = {
-            'zlib': {
-                'compress': self._zlib_compress,
-                'decompress': self._zlib_decompress
-            },
-            'gzip': {
-                'compress': self._gzip_compress,
-                'decompress': self._gzip_decompress
-            },
-            'bz2': {
-                'compress': self._bz2_compress,
-                'decompress': self._bz2_decompress
-            },
-            'lzma': {
-                'compress': self._lzma_compress,
-                'decompress': self._lzma_decompress
-            }
-        }
-        
-    def compress(self, data: Any, algorithm: str = 'zlib', serialize: bool = True) -> bytes:
+    def __init__(self, default_method: str = CompressionMethod.ZLIB, 
+                 compression_level: int = 9):
         """
-        Compress data using specified algorithm
+        Initialize data compressor
+        
+        Args:
+            default_method: Default compression method
+            compression_level: Compression level (1-9, higher = better compression)
+        """
+        self.logger = logging.getLogger('DataCompressor')
+        self.default_method = default_method
+        self.compression_level = min(9, max(1, compression_level))
+        
+    def compress_string(self, data: str, method: str = None) -> bytes:
+        """
+        Compress string data
+        
+        Args:
+            data: String to compress
+            method: Compression method (defaults to default_method)
+            
+        Returns:
+            Compressed bytes
+        """
+        if method is None:
+            method = self.default_method
+            
+        data_bytes = data.encode('utf-8')
+        
+        if method == CompressionMethod.ZLIB:
+            return zlib.compress(data_bytes, level=self.compression_level)
+        elif method == CompressionMethod.GZIP:
+            return gzip.compress(data_bytes, compresslevel=self.compression_level)
+        elif method == CompressionMethod.BZ2:
+            return bz2.compress(data_bytes, compresslevel=self.compression_level)
+        elif method == CompressionMethod.LZMA:
+            return lzma.compress(data_bytes, preset=self.compression_level)
+        else:
+            self.logger.warning(f"Unknown compression method: {method}, using zlib")
+            return zlib.compress(data_bytes, level=self.compression_level)
+    
+    def decompress_string(self, compressed_data: bytes, method: str = None) -> str:
+        """
+        Decompress string data
+        
+        Args:
+            compressed_data: Compressed bytes
+            method: Compression method (defaults to default_method)
+            
+        Returns:
+            Decompressed string
+        """
+        if method is None:
+            method = self.default_method
+            
+        if method == CompressionMethod.ZLIB:
+            data_bytes = zlib.decompress(compressed_data)
+        elif method == CompressionMethod.GZIP:
+            data_bytes = gzip.decompress(compressed_data)
+        elif method == CompressionMethod.BZ2:
+            data_bytes = bz2.decompress(compressed_data)
+        elif method == CompressionMethod.LZMA:
+            data_bytes = lzma.decompress(compressed_data)
+        else:
+            self.logger.warning(f"Unknown compression method: {method}, using zlib")
+            data_bytes = zlib.decompress(compressed_data)
+            
+        return data_bytes.decode('utf-8')
+    
+    def compress_dict(self, data: Dict, method: str = None) -> bytes:
+        """
+        Compress dictionary data (via JSON)
+        
+        Args:
+            data: Dict to compress
+            method: Compression method
+            
+        Returns:
+            Compressed bytes
+        """
+        json_str = json.dumps(data)
+        return self.compress_string(json_str, method)
+    
+    def decompress_dict(self, compressed_data: bytes, method: str = None) -> Dict:
+        """
+        Decompress dictionary data
+        
+        Args:
+            compressed_data: Compressed bytes
+            method: Compression method
+            
+        Returns:
+            Decompressed dict
+        """
+        json_str = self.decompress_string(compressed_data, method)
+        return json.loads(json_str)
+    
+    def compress_object(self, obj: Any, method: str = None) -> bytes:
+        """
+        Compress Python object (via pickle)
+        
+        Args:
+            obj: Object to compress
+            method: Compression method
+            
+        Returns:
+            Compressed bytes
+        """
+        pickled = pickle.dumps(obj)
+        
+        if method is None:
+            method = self.default_method
+            
+        if method == CompressionMethod.ZLIB:
+            return zlib.compress(pickled, level=self.compression_level)
+        elif method == CompressionMethod.GZIP:
+            return gzip.compress(pickled, compresslevel=self.compression_level)
+        elif method == CompressionMethod.BZ2:
+            return bz2.compress(pickled, compresslevel=self.compression_level)
+        elif method == CompressionMethod.LZMA:
+            return lzma.compress(pickled, preset=self.compression_level)
+        else:
+            return zlib.compress(pickled, level=self.compression_level)
+    
+    def decompress_object(self, compressed_data: bytes, method: str = None) -> Any:
+        """
+        Decompress Python object
+        
+        Args:
+            compressed_data: Compressed bytes
+            method: Compression method
+            
+        Returns:
+            Decompressed object
+        """
+        if method is None:
+            method = self.default_method
+            
+        if method == CompressionMethod.ZLIB:
+            pickled = zlib.decompress(compressed_data)
+        elif method == CompressionMethod.GZIP:
+            pickled = gzip.decompress(compressed_data)
+        elif method == CompressionMethod.BZ2:
+            pickled = bz2.decompress(compressed_data)
+        elif method == CompressionMethod.LZMA:
+            pickled = lzma.decompress(compressed_data)
+        else:
+            pickled = zlib.decompress(compressed_data)
+            
+        return pickle.loads(pickled)
+    
+    def get_compression_ratio(self, original_size: int, compressed_size: int) -> float:
+        """
+        Calculate compression ratio
+        
+        Args:
+            original_size: Original data size in bytes
+            compressed_size: Compressed data size in bytes
+            
+        Returns:
+            Compression ratio (higher = better compression)
+        """
+        if compressed_size == 0:
+            return 0.0
+        return original_size / compressed_size
+    
+    def compare_methods(self, data: str) -> Dict[str, Dict]:
+        """
+        Compare compression methods on given data
         
         Args:
             data: Data to compress
-            algorithm: Compression algorithm ('zlib', 'gzip', 'bz2', 'lzma')
-            serialize: Whether to serialize data first (for non-string data)
             
         Returns:
-            Compressed data as bytes
+            Dict with compression statistics for each method
         """
-        if algorithm not in self.algorithms:
-            raise ValueError(f"Unknown algorithm: {algorithm}")
-            
-        # Serialize data if needed
-        if serialize:
-            if isinstance(data, (dict, list)):
-                data = json.dumps(data).encode('utf-8')
-            elif not isinstance(data, bytes):
-                data = str(data).encode('utf-8')
-        elif isinstance(data, str):
-            data = data.encode('utf-8')
-            
-        # Compress
-        compress_func = self.algorithms[algorithm]['compress']
-        compressed = compress_func(data)
-        
-        # Log compression ratio
-        original_size = len(data)
-        compressed_size = len(compressed)
-        ratio = compressed_size / original_size if original_size > 0 else 0
-        
-        self.logger.debug(f"Compressed {original_size} bytes to {compressed_size} bytes "
-                         f"({ratio*100:.1f}%) using {algorithm}")
-        
-        return compressed
-        
-    def decompress(self, compressed_data: bytes, algorithm: str = 'zlib', 
-                   deserialize: bool = True, as_json: bool = False) -> Any:
-        """
-        Decompress data
-        
-        Args:
-            compressed_data: Compressed data
-            algorithm: Compression algorithm used
-            deserialize: Whether to deserialize after decompression
-            as_json: Whether to parse as JSON
-            
-        Returns:
-            Decompressed data
-        """
-        if algorithm not in self.algorithms:
-            raise ValueError(f"Unknown algorithm: {algorithm}")
-            
-        # Decompress
-        decompress_func = self.algorithms[algorithm]['decompress']
-        data = decompress_func(compressed_data)
-        
-        # Deserialize if needed
-        if deserialize:
-            if as_json:
-                data = json.loads(data.decode('utf-8'))
-            else:
-                data = data.decode('utf-8')
-                
-        return data
-        
-    def _zlib_compress(self, data: bytes) -> bytes:
-        """Compress using zlib"""
-        return zlib.compress(data, level=self.compression_level)
-        
-    def _zlib_decompress(self, data: bytes) -> bytes:
-        """Decompress using zlib"""
-        return zlib.decompress(data)
-        
-    def _gzip_compress(self, data: bytes) -> bytes:
-        """Compress using gzip"""
-        return gzip.compress(data, compresslevel=self.compression_level)
-        
-    def _gzip_decompress(self, data: bytes) -> bytes:
-        """Decompress using gzip"""
-        return gzip.decompress(data)
-        
-    def _bz2_compress(self, data: bytes) -> bytes:
-        """Compress using bz2"""
-        return bz2.compress(data, compresslevel=self.compression_level)
-        
-    def _bz2_decompress(self, data: bytes) -> bytes:
-        """Decompress using bz2"""
-        return bz2.decompress(data)
-        
-    def _lzma_compress(self, data: bytes) -> bytes:
-        """Compress using lzma"""
-        return lzma.compress(data, preset=self.compression_level)
-        
-    def _lzma_decompress(self, data: bytes) -> bytes:
-        """Decompress using lzma"""
-        return lzma.decompress(data)
-        
-    def benchmark_algorithms(self, data: Any) -> Dict:
-        """
-        Benchmark all compression algorithms
-        
-        Args:
-            data: Data to test
-            
-        Returns:
-            Dictionary with benchmark results
-        """
+        original_size = len(data.encode('utf-8'))
         results = {}
         
-        # Serialize data once
-        if isinstance(data, (dict, list)):
-            serialized = json.dumps(data).encode('utf-8')
-        elif isinstance(data, str):
-            serialized = data.encode('utf-8')
-        else:
-            serialized = str(data).encode('utf-8')
-            
-        original_size = len(serialized)
+        methods = [
+            CompressionMethod.ZLIB,
+            CompressionMethod.GZIP,
+            CompressionMethod.BZ2,
+            CompressionMethod.LZMA
+        ]
         
-        for algorithm in self.algorithms.keys():
+        for method in methods:
             try:
                 import time
+                start_time = time.time()
+                compressed = self.compress_string(data, method)
+                compress_time = time.time() - start_time
                 
-                # Test compression
-                start = time.time()
-                compressed = self.compress(serialized, algorithm=algorithm, serialize=False)
-                compress_time = time.time() - start
-                
-                # Test decompression
-                start = time.time()
-                decompressed = self.decompress(compressed, algorithm=algorithm, deserialize=False)
-                decompress_time = time.time() - start
-                
-                # Calculate metrics
                 compressed_size = len(compressed)
-                ratio = compressed_size / original_size
+                ratio = self.get_compression_ratio(original_size, compressed_size)
                 
-                results[algorithm] = {
+                start_time = time.time()
+                self.decompress_string(compressed, method)
+                decompress_time = time.time() - start_time
+                
+                results[method] = {
                     'original_size': original_size,
                     'compressed_size': compressed_size,
                     'compression_ratio': ratio,
-                    'space_saving_pct': (1 - ratio) * 100,
-                    'compress_time_ms': compress_time * 1000,
-                    'decompress_time_ms': decompress_time * 1000,
-                    'roundtrip_correct': decompressed == serialized
+                    'space_saved_pct': (1 - compressed_size / original_size) * 100,
+                    'compress_time': compress_time,
+                    'decompress_time': decompress_time
                 }
-                
             except Exception as e:
-                results[algorithm] = {'error': str(e)}
-                
+                self.logger.error(f"Error testing {method}: {e}")
+                results[method] = {'error': str(e)}
+        
         return results
-        
-    def compress_file(self, input_path: str, output_path: str, algorithm: str = 'gzip'):
+    
+    def compress_market_data(self, market_data: Dict) -> bytes:
         """
-        Compress a file
+        Compress market data with optimized settings
         
         Args:
-            input_path: Input file path
-            output_path: Output file path
-            algorithm: Compression algorithm
-        """
-        with open(input_path, 'rb') as f:
-            data = f.read()
-            
-        compressed = self.compress(data, algorithm=algorithm, serialize=False)
-        
-        with open(output_path, 'wb') as f:
-            f.write(compressed)
-            
-        self.logger.info(f"Compressed {input_path} to {output_path}")
-        
-    def decompress_file(self, input_path: str, output_path: str, algorithm: str = 'gzip'):
-        """
-        Decompress a file
-        
-        Args:
-            input_path: Input file path
-            output_path: Output file path
-            algorithm: Compression algorithm
-        """
-        with open(input_path, 'rb') as f:
-            compressed = f.read()
-            
-        data = self.decompress(compressed, algorithm=algorithm, deserialize=False)
-        
-        with open(output_path, 'wb') as f:
-            f.write(data)
-            
-        self.logger.info(f"Decompressed {input_path} to {output_path}")
-        
-    def get_optimal_algorithm(self, data: Any, priority: str = 'ratio') -> str:
-        """
-        Find optimal compression algorithm for given data
-        
-        Args:
-            data: Data to analyze
-            priority: Optimization priority ('ratio', 'speed', 'balanced')
+            market_data: Market data dict
             
         Returns:
-            Best algorithm name
+            Compressed bytes
         """
-        results = self.benchmark_algorithms(data)
+        # Use LZMA for best compression of structured market data
+        return self.compress_dict(market_data, method=CompressionMethod.LZMA)
+    
+    def decompress_market_data(self, compressed_data: bytes) -> Dict:
+        """
+        Decompress market data
         
-        if priority == 'ratio':
-            # Best compression ratio
-            best = min(results.items(), 
-                      key=lambda x: x[1].get('compression_ratio', float('inf'))
-                      if 'error' not in x[1] else float('inf'))
-        elif priority == 'speed':
-            # Fastest compression
-            best = min(results.items(),
-                      key=lambda x: x[1].get('compress_time_ms', float('inf'))
-                      if 'error' not in x[1] else float('inf'))
-        elif priority == 'balanced':
-            # Balance between ratio and speed
-            best = min(results.items(),
-                      key=lambda x: (x[1].get('compression_ratio', float('inf')) + 
-                                   x[1].get('compress_time_ms', float('inf')) / 1000)
-                      if 'error' not in x[1] else float('inf'))
-        else:
-            raise ValueError(f"Unknown priority: {priority}")
+        Args:
+            compressed_data: Compressed bytes
             
-        return best[0]
+        Returns:
+            Market data dict
+        """
+        return self.decompress_dict(compressed_data, method=CompressionMethod.LZMA)
+    
+    def compress_time_series(self, time_series_data: list) -> bytes:
+        """
+        Compress time series data with optimized settings
+        
+        Args:
+            time_series_data: List of time series data points
+            
+        Returns:
+            Compressed bytes
+        """
+        # Convert to JSON and compress with ZLIB (fast and good for numeric data)
+        json_str = json.dumps(time_series_data)
+        return self.compress_string(json_str, method=CompressionMethod.ZLIB)
+    
+    def decompress_time_series(self, compressed_data: bytes) -> list:
+        """
+        Decompress time series data
+        
+        Args:
+            compressed_data: Compressed bytes
+            
+        Returns:
+            Time series data list
+        """
+        json_str = self.decompress_string(compressed_data, method=CompressionMethod.ZLIB)
+        return json.loads(json_str)

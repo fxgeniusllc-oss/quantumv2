@@ -1,16 +1,15 @@
 """
-Alert System
-Real-time alerting for trading events and system issues
+REAL-TIME ALERTING SYSTEM
+Multi-channel alerting for critical events and conditions
 """
 
 import logging
 from typing import Dict, List, Optional, Callable
-from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 
 
-class AlertSeverity(Enum):
+class AlertLevel(Enum):
     """Alert severity levels"""
     INFO = "info"
     WARNING = "warning"
@@ -18,309 +17,418 @@ class AlertSeverity(Enum):
     CRITICAL = "critical"
 
 
-class AlertChannel(Enum):
-    """Alert delivery channels"""
-    LOG = "log"
-    EMAIL = "email"
-    SLACK = "slack"
-    SMS = "sms"
-    WEBHOOK = "webhook"
-
-
-@dataclass
-class Alert:
-    """Alert data structure"""
-    alert_id: str
-    timestamp: datetime
-    severity: AlertSeverity
-    category: str
-    message: str
-    details: Dict
-    channels: List[AlertChannel]
-    
-    def __str__(self):
-        return f"[{self.severity.value.upper()}] {self.category}: {self.message}"
+class AlertType(Enum):
+    """Types of alerts"""
+    SYSTEM = "system"
+    TRADE = "trade"
+    RISK = "risk"
+    PERFORMANCE = "performance"
+    MARKET = "market"
+    COMPLIANCE = "compliance"
 
 
 class AlertSystem:
     """
-    Real-time multi-channel alerting system
-    Monitors events and triggers notifications
+    Real-time alerting system with multiple channels and severity levels
     """
     
-    def __init__(self, config: Optional[Dict] = None):
-        self.logger = logging.getLogger('AlertSystem')
-        self.config = config or {}
-        
-        # Alert storage
-        self.alerts: List[Alert] = []
-        self.alert_counter = 0
-        
-        # Alert handlers
-        self.handlers: Dict[AlertChannel, Callable] = {
-            AlertChannel.LOG: self._handle_log_alert
-        }
-        
-        # Alert configuration
-        self.enabled_channels = [AlertChannel.LOG]  # Default to logging only
-        self.alert_threshold = {
-            AlertSeverity.INFO: True,
-            AlertSeverity.WARNING: True,
-            AlertSeverity.ERROR: True,
-            AlertSeverity.CRITICAL: True
-        }
-        
-        # Alert categories
-        self.categories = {
-            'system': 'System Health',
-            'trade': 'Trade Execution',
-            'risk': 'Risk Management',
-            'market': 'Market Conditions',
-            'performance': 'Performance Metrics',
-            'security': 'Security Events'
-        }
-        
-    def send_alert(self,
-                  severity: AlertSeverity,
-                  category: str,
-                  message: str,
-                  details: Optional[Dict] = None,
-                  channels: Optional[List[AlertChannel]] = None) -> Alert:
+    def __init__(self, alert_threshold: Dict[str, float] = None):
         """
-        Send alert through configured channels
+        Initialize alert system
         
         Args:
-            severity: Alert severity level
-            category: Alert category
-            message: Alert message
-            details: Additional alert details
-            channels: List of channels to use (default: all enabled)
+            alert_threshold: Dict of thresholds for different metrics
+        """
+        self.logger = logging.getLogger('AlertSystem')
+        self.alerts: List[Dict] = []
+        self.alert_threshold = alert_threshold or {
+            'cpu_usage': 85.0,
+            'memory_usage': 85.0,
+            'drawdown': 0.10,  # 10%
+            'daily_loss': 0.05,  # 5%
+            'position_risk': 0.15  # 15%
+        }
+        self.alert_handlers: Dict[AlertLevel, List[Callable]] = {
+            AlertLevel.INFO: [],
+            AlertLevel.WARNING: [],
+            AlertLevel.ERROR: [],
+            AlertLevel.CRITICAL: []
+        }
+        self.alert_cooldown: Dict[str, datetime] = {}
+        self.cooldown_period = timedelta(minutes=5)  # Default cooldown
+        
+    def register_handler(self, level: AlertLevel, handler: Callable):
+        """
+        Register a custom alert handler
+        
+        Args:
+            level: Alert level to handle
+            handler: Callable that takes alert dict as parameter
+        """
+        self.alert_handlers[level].append(handler)
+        self.logger.info(f"Registered handler for {level.value} alerts")
+    
+    def _should_send_alert(self, alert_key: str) -> bool:
+        """
+        Check if alert should be sent (respects cooldown)
+        
+        Args:
+            alert_key: Unique identifier for alert type
             
         Returns:
-            Created Alert object
+            True if alert should be sent
         """
-        # Check if severity is enabled
-        if not self.alert_threshold.get(severity, True):
-            return None
+        if alert_key not in self.alert_cooldown:
+            return True
             
-        # Generate alert ID
-        self.alert_counter += 1
-        alert_id = f"ALERT-{self.alert_counter:06d}"
+        time_since_last = datetime.now() - self.alert_cooldown[alert_key]
+        return time_since_last >= self.cooldown_period
+    
+    def send_alert(self, level: AlertLevel, alert_type: AlertType, 
+                   message: str, data: Optional[Dict] = None,
+                   cooldown_key: Optional[str] = None):
+        """
+        Send an alert
         
-        # Create alert
-        alert = Alert(
-            alert_id=alert_id,
-            timestamp=datetime.now(),
-            severity=severity,
-            category=category,
-            message=message,
-            details=details or {},
-            channels=channels or self.enabled_channels
-        )
+        Args:
+            level: Severity level
+            alert_type: Type of alert
+            message: Alert message
+            data: Additional data dict
+            cooldown_key: Key for cooldown (prevents spam)
+        """
+        # Check cooldown
+        if cooldown_key and not self._should_send_alert(cooldown_key):
+            self.logger.debug(f"Alert {cooldown_key} in cooldown period")
+            return
+        
+        alert = {
+            'timestamp': datetime.now(),
+            'level': level.value,
+            'type': alert_type.value,
+            'message': message,
+            'data': data or {}
+        }
         
         # Store alert
         self.alerts.append(alert)
         
-        # Send through channels
-        for channel in alert.channels:
-            handler = self.handlers.get(channel)
-            if handler:
-                try:
-                    handler(alert)
-                except Exception as e:
-                    self.logger.error(f"Error sending alert through {channel}: {e}")
-            else:
-                self.logger.warning(f"No handler for channel {channel}")
-                
-        return alert
+        # Update cooldown
+        if cooldown_key:
+            self.alert_cooldown[cooldown_key] = datetime.now()
         
-    def _handle_log_alert(self, alert: Alert):
-        """Handle log-based alerts"""
-        log_level = {
-            AlertSeverity.INFO: logging.INFO,
-            AlertSeverity.WARNING: logging.WARNING,
-            AlertSeverity.ERROR: logging.ERROR,
-            AlertSeverity.CRITICAL: logging.CRITICAL
-        }.get(alert.severity, logging.INFO)
+        # Log alert
+        log_method = getattr(self.logger, level.value.lower())
+        log_method(f"[{alert_type.value.upper()}] {message}")
         
-        self.logger.log(log_level, str(alert))
-        
-    def register_handler(self, channel: AlertChannel, handler: Callable):
-        """
-        Register custom alert handler
-        
-        Args:
-            channel: Alert channel
-            handler: Handler function that takes Alert as parameter
-        """
-        self.handlers[channel] = handler
-        self.logger.info(f"Registered handler for channel {channel}")
-        
-    def enable_channel(self, channel: AlertChannel):
-        """Enable alert channel"""
-        if channel not in self.enabled_channels:
-            self.enabled_channels.append(channel)
-            self.logger.info(f"Enabled alert channel: {channel}")
-            
-    def disable_channel(self, channel: AlertChannel):
-        """Disable alert channel"""
-        if channel in self.enabled_channels:
-            self.enabled_channels.remove(channel)
-            self.logger.info(f"Disabled alert channel: {channel}")
-            
-    def set_severity_threshold(self, severity: AlertSeverity, enabled: bool):
-        """
-        Enable or disable alerts for specific severity level
-        
-        Args:
-            severity: Alert severity
-            enabled: Enable/disable flag
-        """
-        self.alert_threshold[severity] = enabled
-        
-    # Convenience methods for common alerts
+        # Call registered handlers
+        for handler in self.alert_handlers[level]:
+            try:
+                handler(alert)
+            except Exception as e:
+                self.logger.error(f"Error in alert handler: {e}")
     
-    def alert_system_health(self, metric: str, value: float, threshold: float):
-        """Alert for system health issues"""
-        self.send_alert(
-            severity=AlertSeverity.WARNING if value < threshold * 1.2 else AlertSeverity.CRITICAL,
-            category='system',
-            message=f"System health alert: {metric}",
-            details={
-                'metric': metric,
-                'value': value,
-                'threshold': threshold
-            }
-        )
+    def check_system_health(self, metrics: Dict):
+        """
+        Check system health metrics and alert if needed
         
-    def alert_trade_execution(self, symbol: str, action: str, success: bool, details: Dict):
-        """Alert for trade execution events"""
-        self.send_alert(
-            severity=AlertSeverity.INFO if success else AlertSeverity.ERROR,
-            category='trade',
-            message=f"Trade {action} for {symbol}: {'Success' if success else 'Failed'}",
-            details=details
-        )
+        Args:
+            metrics: Dict with system metrics (cpu, memory, etc.)
+        """
+        # CPU usage
+        if metrics.get('cpu_usage', 0) > self.alert_threshold['cpu_usage']:
+            self.send_alert(
+                AlertLevel.WARNING,
+                AlertType.SYSTEM,
+                f"High CPU usage: {metrics['cpu_usage']:.1f}%",
+                {'cpu_usage': metrics['cpu_usage']},
+                cooldown_key='cpu_high'
+            )
         
-    def alert_risk_breach(self, risk_type: str, current: float, limit: float):
-        """Alert for risk limit breaches"""
-        self.send_alert(
-            severity=AlertSeverity.CRITICAL,
-            category='risk',
-            message=f"Risk limit breach: {risk_type}",
-            details={
-                'risk_type': risk_type,
-                'current': current,
-                'limit': limit,
-                'breach_percentage': ((current - limit) / limit) * 100
-            }
-        )
+        # Memory usage
+        if metrics.get('memory_usage', 0) > self.alert_threshold['memory_usage']:
+            self.send_alert(
+                AlertLevel.WARNING,
+                AlertType.SYSTEM,
+                f"High memory usage: {metrics['memory_usage']:.1f}%",
+                {'memory_usage': metrics['memory_usage']},
+                cooldown_key='memory_high'
+            )
         
-    def alert_market_anomaly(self, symbol: str, anomaly_type: str, confidence: float):
-        """Alert for market anomalies"""
-        self.send_alert(
-            severity=AlertSeverity.WARNING,
-            category='market',
-            message=f"Market anomaly detected: {symbol}",
-            details={
-                'symbol': symbol,
-                'anomaly_type': anomaly_type,
-                'confidence': confidence
-            }
-        )
+        # GPU usage (if available)
+        if 'gpu_usage' in metrics and metrics['gpu_usage'] > self.alert_threshold['cpu_usage']:
+            self.send_alert(
+                AlertLevel.WARNING,
+                AlertType.SYSTEM,
+                f"High GPU usage: {metrics['gpu_usage']:.1f}%",
+                {'gpu_usage': metrics['gpu_usage']},
+                cooldown_key='gpu_high'
+            )
         
-    def alert_performance_milestone(self, milestone: str, value: float):
-        """Alert for performance milestones"""
-        self.send_alert(
-            severity=AlertSeverity.INFO,
-            category='performance',
-            message=f"Performance milestone: {milestone}",
-            details={
-                'milestone': milestone,
-                'value': value
-            }
-        )
+        # Network latency
+        if 'network_latency' in metrics and metrics['network_latency'] > 100:  # 100ms
+            self.send_alert(
+                AlertLevel.WARNING,
+                AlertType.SYSTEM,
+                f"High network latency: {metrics['network_latency']:.1f}ms",
+                {'network_latency': metrics['network_latency']},
+                cooldown_key='latency_high'
+            )
+    
+    def check_risk_limits(self, risk_metrics: Dict):
+        """
+        Check risk limits and alert if breached
         
-    def alert_security_event(self, event_type: str, details: Dict):
-        """Alert for security events"""
-        self.send_alert(
-            severity=AlertSeverity.CRITICAL,
-            category='security',
-            message=f"Security event: {event_type}",
-            details=details
-        )
+        Args:
+            risk_metrics: Dict with risk metrics
+        """
+        # Drawdown check
+        if risk_metrics.get('drawdown', 0) > self.alert_threshold['drawdown']:
+            self.send_alert(
+                AlertLevel.ERROR,
+                AlertType.RISK,
+                f"Drawdown limit breached: {risk_metrics['drawdown']:.2%}",
+                {'drawdown': risk_metrics['drawdown']},
+                cooldown_key='drawdown_breach'
+            )
         
-    def get_recent_alerts(self, n: int = 10, severity: Optional[AlertSeverity] = None) -> List[Alert]:
+        # Daily loss check
+        if risk_metrics.get('daily_loss_pct', 0) > self.alert_threshold['daily_loss']:
+            self.send_alert(
+                AlertLevel.CRITICAL,
+                AlertType.RISK,
+                f"Daily loss limit breached: {risk_metrics['daily_loss_pct']:.2%}",
+                {'daily_loss': risk_metrics['daily_loss_pct']},
+                cooldown_key='daily_loss_breach'
+            )
+        
+        # Position risk check
+        if risk_metrics.get('position_risk', 0) > self.alert_threshold['position_risk']:
+            self.send_alert(
+                AlertLevel.WARNING,
+                AlertType.RISK,
+                f"High position risk: {risk_metrics['position_risk']:.2%}",
+                {'position_risk': risk_metrics['position_risk']},
+                cooldown_key='position_risk_high'
+            )
+        
+        # Portfolio heat check
+        if risk_metrics.get('portfolio_heat', 0) > 0.90:  # 90%
+            self.send_alert(
+                AlertLevel.CRITICAL,
+                AlertType.RISK,
+                f"Portfolio heat critical: {risk_metrics['portfolio_heat']:.2%}",
+                {'portfolio_heat': risk_metrics['portfolio_heat']},
+                cooldown_key='portfolio_heat_critical'
+            )
+    
+    def alert_trade_execution(self, trade: Dict, success: bool):
+        """
+        Alert on trade execution
+        
+        Args:
+            trade: Trade dict
+            success: Whether trade was successful
+        """
+        if success:
+            self.send_alert(
+                AlertLevel.INFO,
+                AlertType.TRADE,
+                f"Trade executed: {trade['symbol']} {trade.get('side', 'N/A')} "
+                f"{trade.get('quantity', 0)} @ {trade.get('price', 0)}",
+                trade
+            )
+        else:
+            self.send_alert(
+                AlertLevel.ERROR,
+                AlertType.TRADE,
+                f"Trade execution failed: {trade['symbol']} - {trade.get('error', 'Unknown error')}",
+                trade
+            )
+    
+    def alert_large_trade(self, trade: Dict, size_threshold: float = 0.1):
+        """
+        Alert on large trades (>threshold of portfolio)
+        
+        Args:
+            trade: Trade dict
+            size_threshold: Size threshold as fraction of portfolio
+        """
+        position_size = trade.get('position_size_pct', 0)
+        if position_size > size_threshold:
+            self.send_alert(
+                AlertLevel.WARNING,
+                AlertType.TRADE,
+                f"Large trade detected: {trade['symbol']} ({position_size:.2%} of portfolio)",
+                trade,
+                cooldown_key=f"large_trade_{trade['symbol']}"
+            )
+    
+    def alert_stop_loss_triggered(self, position: Dict):
+        """
+        Alert when stop loss is triggered
+        
+        Args:
+            position: Position dict
+        """
+        self.send_alert(
+            AlertLevel.WARNING,
+            AlertType.TRADE,
+            f"Stop loss triggered: {position['symbol']} at {position.get('exit_price', 0)} "
+            f"(Loss: {position.get('pnl', 0):.2f})",
+            position
+        )
+    
+    def alert_performance_milestone(self, metric: str, value: float, milestone: str):
+        """
+        Alert on performance milestones
+        
+        Args:
+            metric: Performance metric name
+            value: Current value
+            milestone: Milestone description
+        """
+        self.send_alert(
+            AlertLevel.INFO,
+            AlertType.PERFORMANCE,
+            f"Performance milestone reached: {metric} = {value} ({milestone})",
+            {'metric': metric, 'value': value, 'milestone': milestone}
+        )
+    
+    def alert_market_anomaly(self, symbol: str, anomaly_type: str, score: float):
+        """
+        Alert on market anomalies
+        
+        Args:
+            symbol: Trading pair
+            anomaly_type: Type of anomaly detected
+            score: Anomaly score
+        """
+        self.send_alert(
+            AlertLevel.WARNING,
+            AlertType.MARKET,
+            f"Market anomaly detected: {symbol} - {anomaly_type} (score: {score:.2f})",
+            {'symbol': symbol, 'anomaly_type': anomaly_type, 'score': score},
+            cooldown_key=f"anomaly_{symbol}_{anomaly_type}"
+        )
+    
+    def alert_compliance_issue(self, issue: str, severity: str = 'warning'):
+        """
+        Alert on compliance issues
+        
+        Args:
+            issue: Description of compliance issue
+            severity: Severity level (warning/error/critical)
+        """
+        level_map = {
+            'info': AlertLevel.INFO,
+            'warning': AlertLevel.WARNING,
+            'error': AlertLevel.ERROR,
+            'critical': AlertLevel.CRITICAL
+        }
+        
+        self.send_alert(
+            level_map.get(severity.lower(), AlertLevel.WARNING),
+            AlertType.COMPLIANCE,
+            f"Compliance issue: {issue}",
+            {'issue': issue}
+        )
+    
+    def get_recent_alerts(self, minutes: int = 60, 
+                         level: Optional[AlertLevel] = None,
+                         alert_type: Optional[AlertType] = None) -> List[Dict]:
         """
         Get recent alerts
         
         Args:
-            n: Number of alerts to retrieve
-            severity: Filter by severity (optional)
+            minutes: Number of minutes to look back
+            level: Filter by alert level
+            alert_type: Filter by alert type
             
         Returns:
             List of recent alerts
         """
-        alerts = self.alerts
+        cutoff_time = datetime.now() - timedelta(minutes=minutes)
         
-        if severity:
-            alerts = [a for a in alerts if a.severity == severity]
-            
-        return alerts[-n:]
+        recent = [
+            alert for alert in self.alerts
+            if alert['timestamp'] >= cutoff_time
+        ]
         
-    def get_alerts_by_category(self, category: str) -> List[Alert]:
-        """
-        Get alerts by category
+        # Apply filters
+        if level:
+            recent = [a for a in recent if a['level'] == level.value]
         
-        Args:
-            category: Alert category
-            
-        Returns:
-            List of alerts in category
-        """
-        return [a for a in self.alerts if a.category == category]
+        if alert_type:
+            recent = [a for a in recent if a['type'] == alert_type.value]
         
-    def get_critical_alerts(self) -> List[Alert]:
-        """Get all critical alerts"""
-        return [a for a in self.alerts if a.severity == AlertSeverity.CRITICAL]
-        
-    def clear_alerts(self, before: Optional[datetime] = None):
-        """
-        Clear alerts
-        
-        Args:
-            before: Clear alerts before this datetime (optional, default: all)
-        """
-        if before:
-            self.alerts = [a for a in self.alerts if a.timestamp >= before]
-        else:
-            self.alerts = []
-            
-        self.logger.info(f"Cleared alerts{' before ' + str(before) if before else ''}")
-        
+        return recent
+    
     def get_alert_summary(self) -> Dict:
         """
         Get summary of alerts
         
         Returns:
-            Dictionary with alert statistics
+            Dict with alert statistics
         """
         if not self.alerts:
-            return {'total': 0}
-            
-        summary = {
-            'total': len(self.alerts),
-            'by_severity': {},
-            'by_category': {},
-            'latest': self.alerts[-1] if self.alerts else None
-        }
+            return {
+                'total_alerts': 0,
+                'by_level': {},
+                'by_type': {},
+                'recent_critical': []
+            }
         
-        for severity in AlertSeverity:
-            count = len([a for a in self.alerts if a.severity == severity])
-            summary['by_severity'][severity.value] = count
-            
-        for category in self.categories.keys():
-            count = len([a for a in self.alerts if a.category == category])
-            summary['by_category'][category] = count
-            
-        return summary
+        # Count by level
+        by_level = {}
+        for alert in self.alerts:
+            level = alert['level']
+            by_level[level] = by_level.get(level, 0) + 1
+        
+        # Count by type
+        by_type = {}
+        for alert in self.alerts:
+            alert_type = alert['type']
+            by_type[alert_type] = by_type.get(alert_type, 0) + 1
+        
+        # Get recent critical alerts
+        recent_critical = self.get_recent_alerts(minutes=60, level=AlertLevel.CRITICAL)
+        
+        return {
+            'total_alerts': len(self.alerts),
+            'by_level': by_level,
+            'by_type': by_type,
+            'recent_critical': recent_critical,
+            'last_alert': self.alerts[-1] if self.alerts else None
+        }
+    
+    def clear_old_alerts(self, days: int = 7):
+        """
+        Clear alerts older than specified days
+        
+        Args:
+            days: Number of days to keep
+        """
+        cutoff_time = datetime.now() - timedelta(days=days)
+        
+        before_count = len(self.alerts)
+        self.alerts = [
+            alert for alert in self.alerts
+            if alert['timestamp'] >= cutoff_time
+        ]
+        after_count = len(self.alerts)
+        
+        cleared = before_count - after_count
+        if cleared > 0:
+            self.logger.info(f"Cleared {cleared} old alerts")
+    
+    def set_threshold(self, metric: str, value: float):
+        """
+        Update alert threshold
+        
+        Args:
+            metric: Metric name
+            value: New threshold value
+        """
+        self.alert_threshold[metric] = value
+        self.logger.info(f"Updated threshold for {metric} to {value}")

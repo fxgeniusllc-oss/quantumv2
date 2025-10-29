@@ -1,346 +1,378 @@
 """
-Predictive Surface Mapping
+PREDICTIVE MARKET SURFACE MAPPING
 Creates multi-dimensional predictive surfaces for market analysis
 """
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, ConstantKernel
-from scipy.interpolate import griddata
+from typing import Dict, List, Tuple, Optional
+from scipy.interpolate import griddata, interp2d
 import logging
 
 
 class PredictiveSurface:
     """
-    Advanced predictive surface mapping system
-    Creates 3D predictive surfaces for market forecasting
+    Multi-dimensional market surface mapping for advanced predictions
+    Uses interpolation and surface modeling to predict market conditions
     """
     
-    def __init__(self, config: Optional[Dict] = None):
-        self.logger = logging.getLogger('PredictiveSurface')
-        self.config = config or {}
-        
-        # Predictive parameters
-        self.predictive_horizon = self.config.get('predictive_horizon', 500)
-        self.surface_resolution = 50  # Grid resolution for surface
-        self.confidence_levels = [0.68, 0.95, 0.997]  # 1, 2, 3 sigma
-        
-        # Storage for surfaces
-        self.surfaces: Dict[str, Dict] = {}
-        
-        # Gaussian Process model
-        kernel = ConstantKernel(1.0) * RBF(length_scale=1.0)
-        self.gp_model = GaussianProcessRegressor(
-            kernel=kernel,
-            n_restarts_optimizer=10,
-            alpha=1e-6,
-            normalize_y=True
-        )
-        
-    def create_price_surface(self, 
-                            symbol: str,
-                            price_data: pd.DataFrame,
-                            features: List[str]) -> Dict:
+    def __init__(self, horizon: int = 500):
         """
-        Create predictive price surface
+        Initialize predictive surface mapper
         
         Args:
-            symbol: Trading symbol
-            price_data: DataFrame with price and features
-            features: List of feature column names
+            horizon: Predictive horizon in data points
+        """
+        self.logger = logging.getLogger('PredictiveSurface')
+        self.horizon = horizon
+        self.surfaces: Dict[str, Dict] = {}
+        self.historical_data: Dict[str, pd.DataFrame] = {}
+        
+    def add_market_data(self, symbol: str, data: pd.DataFrame):
+        """
+        Add market data for surface generation
+        
+        Args:
+            symbol: Trading pair symbol
+            data: DataFrame with OHLCV and optional features
+        """
+        if symbol not in self.historical_data:
+            self.historical_data[symbol] = pd.DataFrame()
+            
+        # Append new data and keep only last horizon points
+        self.historical_data[symbol] = pd.concat([self.historical_data[symbol], data])
+        if len(self.historical_data[symbol]) > self.horizon:
+            self.historical_data[symbol] = self.historical_data[symbol].iloc[-self.horizon:]
+            
+        self.logger.debug(f"Updated market data for {symbol}: {len(self.historical_data[symbol])} points")
+    
+    def generate_price_volatility_surface(self, symbol: str) -> Dict:
+        """
+        Generate price-volatility surface
+        
+        Args:
+            symbol: Trading pair symbol
             
         Returns:
-            Dictionary with surface data
+            Dict with surface data and interpolation function
         """
-        if len(features) < 2:
-            self.logger.error("Need at least 2 features for surface mapping")
+        if symbol not in self.historical_data or self.historical_data[symbol].empty:
+            self.logger.warning(f"No data available for {symbol}")
             return {}
             
-        # Use first two features for 2D surface
-        X = price_data[features[:2]].values
-        y = price_data['close'].values if 'close' in price_data.columns else price_data.iloc[:, 0].values
+        data = self.historical_data[symbol]
         
-        # Fit Gaussian Process
-        try:
-            self.gp_model.fit(X, y)
-        except Exception as e:
-            self.logger.error(f"Error fitting GP model: {e}")
+        if len(data) < 20:
+            self.logger.warning(f"Insufficient data for surface generation ({len(data)} points)")
             return {}
             
-        # Create prediction grid
-        x1_min, x1_max = X[:, 0].min(), X[:, 0].max()
-        x2_min, x2_max = X[:, 1].min(), X[:, 1].max()
+        # Calculate returns and volatility
+        returns = data['close'].pct_change().dropna()
         
-        x1_range = np.linspace(x1_min, x1_max, self.surface_resolution)
-        x2_range = np.linspace(x2_min, x2_max, self.surface_resolution)
+        # Calculate rolling volatility at different windows
+        vol_windows = [5, 10, 20, 50]
+        volatility_data = {}
         
-        X1_grid, X2_grid = np.meshgrid(x1_range, x2_range)
-        X_grid = np.column_stack([X1_grid.ravel(), X2_grid.ravel()])
+        for window in vol_windows:
+            if len(returns) >= window:
+                volatility_data[f'vol_{window}'] = returns.rolling(window=window).std()
         
-        # Make predictions
-        y_pred, y_std = self.gp_model.predict(X_grid, return_std=True)
+        # Create surface data
+        surface_data = {
+            'prices': data['close'].values,
+            'returns': returns.values,
+            'volatility': volatility_data,
+            'timestamps': data.index.values if hasattr(data.index, 'values') else np.arange(len(data))
+        }
         
-        # Reshape predictions to grid
-        Z_pred = y_pred.reshape(X1_grid.shape)
-        Z_std = y_std.reshape(X1_grid.shape)
+        # Store surface
+        self.surfaces[f"{symbol}_price_vol"] = surface_data
+        
+        self.logger.info(f"Generated price-volatility surface for {symbol}")
+        return surface_data
+    
+    def generate_volume_profile_surface(self, symbol: str) -> Dict:
+        """
+        Generate volume-price surface (volume profile)
+        
+        Args:
+            symbol: Trading pair symbol
+            
+        Returns:
+            Dict with volume profile data
+        """
+        if symbol not in self.historical_data or self.historical_data[symbol].empty:
+            self.logger.warning(f"No data available for {symbol}")
+            return {}
+            
+        data = self.historical_data[symbol]
+        
+        if 'volume' not in data.columns:
+            self.logger.warning(f"No volume data for {symbol}")
+            return {}
+            
+        # Create price bins
+        price_min = data['close'].min()
+        price_max = data['close'].max()
+        num_bins = min(50, len(data) // 10)  # Adaptive binning
+        
+        if num_bins < 5:
+            num_bins = 5
+            
+        price_bins = np.linspace(price_min, price_max, num_bins)
+        
+        # Calculate volume at each price level
+        volume_profile = []
+        for i in range(len(price_bins) - 1):
+            mask = (data['close'] >= price_bins[i]) & (data['close'] < price_bins[i + 1])
+            total_volume = data.loc[mask, 'volume'].sum()
+            avg_price = (price_bins[i] + price_bins[i + 1]) / 2
+            volume_profile.append({
+                'price': avg_price,
+                'volume': total_volume,
+                'price_min': price_bins[i],
+                'price_max': price_bins[i + 1]
+            })
         
         surface_data = {
-            'symbol': symbol,
-            'features': features[:2],
-            'x1_grid': X1_grid,
-            'x2_grid': X2_grid,
-            'predictions': Z_pred,
-            'std_dev': Z_std,
-            'confidence_bounds': self._calculate_confidence_bounds(Z_pred, Z_std),
-            'gradient': self._calculate_surface_gradient(Z_pred),
-            'curvature': self._calculate_surface_curvature(Z_pred)
+            'volume_profile': volume_profile,
+            'total_volume': data['volume'].sum(),
+            'avg_volume': data['volume'].mean(),
+            'price_range': (price_min, price_max)
         }
         
-        self.surfaces[symbol] = surface_data
+        self.surfaces[f"{symbol}_volume"] = surface_data
         
+        self.logger.info(f"Generated volume profile surface for {symbol}")
         return surface_data
-        
-    def _calculate_confidence_bounds(self, predictions: np.ndarray, std_dev: np.ndarray) -> Dict:
+    
+    def generate_momentum_surface(self, symbol: str) -> Dict:
         """
-        Calculate confidence bounds for predictions
+        Generate momentum surface across multiple timeframes
         
         Args:
-            predictions: Predicted values
-            std_dev: Standard deviation of predictions
+            symbol: Trading pair symbol
             
         Returns:
-            Dictionary with confidence bounds
+            Dict with momentum surface data
         """
-        bounds = {}
-        
-        for level in self.confidence_levels:
-            # Calculate z-score for confidence level
-            from scipy.stats import norm
-            z_score = norm.ppf((1 + level) / 2)
-            
-            bounds[f'{int(level*100)}%'] = {
-                'upper': predictions + z_score * std_dev,
-                'lower': predictions - z_score * std_dev,
-                'width': 2 * z_score * std_dev
-            }
-            
-        return bounds
-        
-    def _calculate_surface_gradient(self, surface: np.ndarray) -> Dict:
-        """
-        Calculate gradient of predictive surface
-        
-        Args:
-            surface: 2D array of predictions
-            
-        Returns:
-            Dictionary with gradient information
-        """
-        # Calculate gradients in both directions
-        grad_x = np.gradient(surface, axis=1)
-        grad_y = np.gradient(surface, axis=0)
-        
-        # Calculate gradient magnitude
-        gradient_magnitude = np.sqrt(grad_x**2 + grad_y**2)
-        
-        return {
-            'dx': grad_x,
-            'dy': grad_y,
-            'magnitude': gradient_magnitude,
-            'max_gradient': np.max(gradient_magnitude),
-            'mean_gradient': np.mean(gradient_magnitude)
-        }
-        
-    def _calculate_surface_curvature(self, surface: np.ndarray) -> Dict:
-        """
-        Calculate curvature of predictive surface
-        
-        Args:
-            surface: 2D array of predictions
-            
-        Returns:
-            Dictionary with curvature information
-        """
-        # Calculate second derivatives
-        d2_x = np.gradient(np.gradient(surface, axis=1), axis=1)
-        d2_y = np.gradient(np.gradient(surface, axis=0), axis=0)
-        d2_xy = np.gradient(np.gradient(surface, axis=1), axis=0)
-        
-        # Calculate mean curvature
-        mean_curvature = (d2_x + d2_y) / 2
-        
-        # Calculate Gaussian curvature
-        gaussian_curvature = d2_x * d2_y - d2_xy**2
-        
-        return {
-            'd2x': d2_x,
-            'd2y': d2_y,
-            'd2xy': d2_xy,
-            'mean_curvature': mean_curvature,
-            'gaussian_curvature': gaussian_curvature,
-            'max_curvature': np.max(np.abs(mean_curvature))
-        }
-        
-    def find_optimal_regions(self, symbol: str, optimization: str = 'max') -> List[Tuple]:
-        """
-        Find optimal regions on predictive surface
-        
-        Args:
-            symbol: Trading symbol
-            optimization: 'max' for maxima, 'min' for minima
-            
-        Returns:
-            List of (x1, x2, value) tuples for optimal points
-        """
-        if symbol not in self.surfaces:
-            self.logger.warning(f"No surface data for {symbol}")
-            return []
-            
-        surface_data = self.surfaces[symbol]
-        predictions = surface_data['predictions']
-        x1_grid = surface_data['x1_grid']
-        x2_grid = surface_data['x2_grid']
-        
-        # Find local extrema
-        from scipy.ndimage import maximum_filter, minimum_filter
-        
-        if optimization == 'max':
-            local_extrema = (predictions == maximum_filter(predictions, size=3))
-        else:
-            local_extrema = (predictions == minimum_filter(predictions, size=3))
-            
-        # Get coordinates of extrema
-        extrema_coords = np.where(local_extrema)
-        
-        optimal_points = []
-        for i, j in zip(extrema_coords[0], extrema_coords[1]):
-            x1 = x1_grid[i, j]
-            x2 = x2_grid[i, j]
-            value = predictions[i, j]
-            optimal_points.append((x1, x2, value))
-            
-        # Sort by value
-        optimal_points.sort(key=lambda x: x[2], reverse=(optimization == 'max'))
-        
-        return optimal_points[:10]  # Return top 10
-        
-    def predict_trajectory(self, 
-                          symbol: str,
-                          current_state: np.ndarray,
-                          steps: int = 10) -> Dict:
-        """
-        Predict future trajectory on surface
-        
-        Args:
-            symbol: Trading symbol
-            current_state: Current state [feature1, feature2]
-            steps: Number of steps to predict
-            
-        Returns:
-            Dictionary with trajectory prediction
-        """
-        if symbol not in self.surfaces:
-            self.logger.warning(f"No surface data for {symbol}")
+        if symbol not in self.historical_data or self.historical_data[symbol].empty:
+            self.logger.warning(f"No data available for {symbol}")
             return {}
             
-        surface_data = self.surfaces[symbol]
-        gradient = surface_data['gradient']
+        data = self.historical_data[symbol]
         
-        # Initialize trajectory
-        trajectory = [current_state.copy()]
-        state = current_state.copy()
+        if len(data) < 20:
+            self.logger.warning(f"Insufficient data for momentum surface ({len(data)} points)")
+            return {}
+            
+        # Calculate momentum at different windows
+        momentum_windows = [5, 10, 20, 50]
+        momentum_data = {}
         
-        # Follow gradient for specified steps
-        step_size = 0.1  # Adaptive step size
+        for window in momentum_windows:
+            if len(data) >= window:
+                momentum = data['close'].pct_change(periods=window)
+                momentum_data[f'momentum_{window}'] = momentum.values
         
-        for _ in range(steps):
-            # Get gradient at current position
-            # Interpolate gradient from grid
-            grad_x_interp = griddata(
-                (surface_data['x1_grid'].ravel(), surface_data['x2_grid'].ravel()),
-                gradient['dx'].ravel(),
-                state.reshape(1, -1),
-                method='linear'
-            )[0]
-            
-            grad_y_interp = griddata(
-                (surface_data['x1_grid'].ravel(), surface_data['x2_grid'].ravel()),
-                gradient['dy'].ravel(),
-                state.reshape(1, -1),
-                method='linear'
-            )[0]
-            
-            # Update state following gradient
-            state = state + step_size * np.array([grad_x_interp, grad_y_interp])
-            trajectory.append(state.copy())
-            
-        trajectory = np.array(trajectory)
+        # Calculate RSI at different periods
+        rsi_periods = [14, 28]
+        rsi_data = {}
         
-        # Predict values along trajectory
-        trajectory_predictions = []
-        for point in trajectory:
-            pred, std = self.gp_model.predict(point.reshape(1, -1), return_std=True)
-            trajectory_predictions.append({
-                'value': pred[0],
-                'std': std[0]
-            })
-            
-        return {
-            'trajectory': trajectory,
-            'predictions': trajectory_predictions,
-            'direction': trajectory[-1] - trajectory[0],
-            'distance': np.linalg.norm(trajectory[-1] - trajectory[0])
+        for period in rsi_periods:
+            if len(data) >= period + 1:
+                delta = data['close'].diff()
+                gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+                rs = gain / loss
+                rsi = 100 - (100 / (1 + rs))
+                rsi_data[f'rsi_{period}'] = rsi.values
+        
+        surface_data = {
+            'momentum': momentum_data,
+            'rsi': rsi_data,
+            'timestamps': data.index.values if hasattr(data.index, 'values') else np.arange(len(data))
         }
         
-    def get_uncertainty_map(self, symbol: str) -> Optional[np.ndarray]:
+        self.surfaces[f"{symbol}_momentum"] = surface_data
+        
+        self.logger.info(f"Generated momentum surface for {symbol}")
+        return surface_data
+    
+    def interpolate_surface(self, symbol: str, surface_type: str, 
+                           target_points: int = 100) -> Optional[np.ndarray]:
         """
-        Get uncertainty map for predictions
+        Interpolate surface for smoother visualization and prediction
         
         Args:
-            symbol: Trading symbol
+            symbol: Trading pair symbol
+            surface_type: Type of surface (price_vol, volume, momentum)
+            target_points: Number of interpolation points
             
         Returns:
-            2D array of prediction uncertainties
+            Interpolated surface array
         """
-        if symbol not in self.surfaces:
+        surface_key = f"{symbol}_{surface_type}"
+        
+        if surface_key not in self.surfaces:
+            self.logger.warning(f"Surface {surface_key} not found")
             return None
             
-        return self.surfaces[symbol]['std_dev']
+        surface = self.surfaces[surface_key]
         
-    def analyze_surface_stability(self, symbol: str) -> Dict:
+        # Different interpolation strategies based on surface type
+        if surface_type == 'price_vol':
+            if 'prices' not in surface or 'returns' not in surface:
+                return None
+                
+            # Simple linear interpolation for demo
+            prices = surface['prices']
+            returns = surface['returns']
+            
+            # Remove NaN values
+            mask = ~(np.isnan(prices) | np.isnan(returns))
+            if not mask.any():
+                return None
+                
+            valid_prices = prices[mask]
+            valid_returns = returns[mask]
+            
+            if len(valid_prices) < 3:
+                return None
+                
+            # Create interpolation grid
+            price_range = np.linspace(valid_prices.min(), valid_prices.max(), target_points)
+            interpolated = np.interp(price_range, valid_prices, valid_returns)
+            
+            return interpolated
+            
+        return None
+    
+    def predict_future_surface(self, symbol: str, steps_ahead: int = 10) -> Dict:
         """
-        Analyze stability characteristics of predictive surface
+        Predict future market surface evolution
         
         Args:
-            symbol: Trading symbol
+            symbol: Trading pair symbol
+            steps_ahead: Number of steps to predict
             
         Returns:
-            Dictionary with stability metrics
+            Dict with predicted surface characteristics
         """
-        if symbol not in self.surfaces:
+        if symbol not in self.historical_data or self.historical_data[symbol].empty:
+            self.logger.warning(f"No data available for {symbol}")
             return {}
             
-        surface_data = self.surfaces[symbol]
-        gradient = surface_data['gradient']
-        curvature = surface_data['curvature']
+        data = self.historical_data[symbol]
         
-        # Calculate stability metrics
-        stability = {
-            'gradient_stability': 1.0 / (1.0 + gradient['mean_gradient']),
-            'curvature_stability': 1.0 / (1.0 + np.mean(np.abs(curvature['mean_curvature']))),
-            'uncertainty_mean': np.mean(surface_data['std_dev']),
-            'uncertainty_max': np.max(surface_data['std_dev']),
-            'stable_regions': np.sum(gradient['magnitude'] < np.percentile(gradient['magnitude'], 25)),
-            'volatile_regions': np.sum(gradient['magnitude'] > np.percentile(gradient['magnitude'], 75))
+        if len(data) < 50:
+            self.logger.warning(f"Insufficient data for prediction ({len(data)} points)")
+            return {}
+            
+        # Calculate trend
+        recent_data = data['close'].iloc[-50:]
+        trend = (recent_data.iloc[-1] - recent_data.iloc[0]) / recent_data.iloc[0]
+        
+        # Calculate recent volatility
+        returns = data['close'].pct_change().dropna()
+        recent_volatility = returns.iloc[-20:].std() if len(returns) >= 20 else returns.std()
+        
+        # Simple prediction based on trend and volatility
+        current_price = data['close'].iloc[-1]
+        predicted_prices = []
+        
+        for i in range(1, steps_ahead + 1):
+            # Simple random walk with drift
+            predicted_price = current_price * (1 + trend / 50) ** i
+            predicted_prices.append(predicted_price)
+        
+        prediction = {
+            'predicted_prices': predicted_prices,
+            'trend': trend,
+            'volatility': recent_volatility,
+            'confidence': max(0.5, 1.0 - abs(trend)),  # Higher volatility = lower confidence
+            'steps_ahead': steps_ahead
         }
         
-        # Overall stability score (0-1, higher is more stable)
-        stability['overall_score'] = (
-            0.4 * stability['gradient_stability'] +
-            0.3 * stability['curvature_stability'] +
-            0.3 * (1.0 / (1.0 + stability['uncertainty_mean']))
-        )
+        self.logger.info(f"Generated {steps_ahead}-step prediction for {symbol}")
+        return prediction
+    
+    def get_support_resistance_levels(self, symbol: str, num_levels: int = 5) -> Dict[str, List[float]]:
+        """
+        Identify support and resistance levels from price surface
         
-        return stability
+        Args:
+            symbol: Trading pair symbol
+            num_levels: Number of levels to identify
+            
+        Returns:
+            Dict with support and resistance levels
+        """
+        if symbol not in self.historical_data or self.historical_data[symbol].empty:
+            self.logger.warning(f"No data available for {symbol}")
+            return {'support': [], 'resistance': []}
+            
+        data = self.historical_data[symbol]
+        
+        if len(data) < 20:
+            return {'support': [], 'resistance': []}
+            
+        # Find local minima (support) and maxima (resistance)
+        prices = data['close'].values
+        
+        support_levels = []
+        resistance_levels = []
+        
+        # Simple peak/trough detection
+        for i in range(2, len(prices) - 2):
+            # Local minimum (support)
+            if prices[i] < prices[i-1] and prices[i] < prices[i-2] and \
+               prices[i] < prices[i+1] and prices[i] < prices[i+2]:
+                support_levels.append(prices[i])
+                
+            # Local maximum (resistance)
+            if prices[i] > prices[i-1] and prices[i] > prices[i-2] and \
+               prices[i] > prices[i+1] and prices[i] > prices[i+2]:
+                resistance_levels.append(prices[i])
+        
+        # Get most significant levels (by frequency/strength)
+        support_levels = sorted(support_levels)[:num_levels] if support_levels else []
+        resistance_levels = sorted(resistance_levels, reverse=True)[:num_levels] if resistance_levels else []
+        
+        return {
+            'support': support_levels,
+            'resistance': resistance_levels
+        }
+    
+    def get_surface_summary(self, symbol: str) -> Dict:
+        """
+        Get comprehensive summary of all surfaces for a symbol
+        
+        Args:
+            symbol: Trading pair symbol
+            
+        Returns:
+            Dict with surface summaries
+        """
+        summary = {
+            'symbol': symbol,
+            'data_points': len(self.historical_data.get(symbol, [])),
+            'surfaces': []
+        }
+        
+        # List all surfaces for this symbol
+        for key in self.surfaces:
+            if key.startswith(symbol):
+                summary['surfaces'].append(key)
+        
+        # Add support/resistance
+        levels = self.get_support_resistance_levels(symbol)
+        summary['support_levels'] = levels['support']
+        summary['resistance_levels'] = levels['resistance']
+        
+        # Add prediction
+        prediction = self.predict_future_surface(symbol, steps_ahead=5)
+        if prediction:
+            summary['short_term_prediction'] = prediction
+        
+        return summary

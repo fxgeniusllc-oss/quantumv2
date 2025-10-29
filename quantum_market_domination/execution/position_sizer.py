@@ -1,363 +1,391 @@
 """
-Position Sizer
-Dynamic position sizing based on risk, volatility, and portfolio metrics
+DYNAMIC POSITION SIZING
+Advanced position sizing algorithms based on risk, volatility, and market conditions
 """
 
 import numpy as np
-from typing import Dict, List, Optional
+import pandas as pd
+from typing import Dict, Optional, List
 import logging
 
 
 class PositionSizer:
     """
-    Advanced position sizing algorithm
-    Calculates optimal position sizes based on multiple risk factors
+    Dynamic position sizing using multiple strategies:
+    - Fixed fractional
+    - Kelly Criterion
+    - Volatility-based
+    - Risk parity
     """
     
-    def __init__(self, config: Optional[Dict] = None):
+    def __init__(self, max_position_pct: float = 0.1, max_leverage: float = 3.0):
+        """
+        Initialize position sizer
+        
+        Args:
+            max_position_pct: Maximum position size as % of portfolio (0-1)
+            max_leverage: Maximum leverage allowed
+        """
         self.logger = logging.getLogger('PositionSizer')
-        self.config = config or {}
+        self.max_position_pct = max_position_pct
+        self.max_leverage = max_leverage
         
-        # Risk parameters
-        self.max_single_trade_risk = self.config.get('max_single_trade_risk', 0.05)  # 5%
-        self.max_portfolio_risk = self.config.get('total_portfolio_risk', 0.15)  # 15%
-        self.kelly_fraction = 0.25  # Conservative Kelly criterion
-        
-        # Position sizing methods
-        self.default_method = 'kelly'  # 'fixed', 'volatility', 'kelly', 'optimal_f'
-        
-    def calculate_position_size(self,
-                               capital: float,
-                               entry_price: float,
-                               stop_loss: float,
-                               method: Optional[str] = None,
-                               win_rate: Optional[float] = None,
-                               win_loss_ratio: Optional[float] = None,
-                               volatility: Optional[float] = None) -> Dict:
+    def calculate_fixed_fractional(self, portfolio_value: float, 
+                                   risk_per_trade: float = 0.02) -> float:
         """
-        Calculate optimal position size
+        Fixed fractional position sizing
         
         Args:
-            capital: Total available capital
-            entry_price: Entry price for trade
-            stop_loss: Stop loss price
-            method: Position sizing method
-            win_rate: Historical win rate (for Kelly)
-            win_loss_ratio: Average win/loss ratio (for Kelly)
-            volatility: Asset volatility (for volatility-based sizing)
+            portfolio_value: Total portfolio value
+            risk_per_trade: Risk per trade as fraction (0-1)
             
         Returns:
-            Dictionary with position size details
+            Position size in portfolio currency
         """
-        method = method or self.default_method
+        position_size = portfolio_value * risk_per_trade
+        max_size = portfolio_value * self.max_position_pct
         
-        if entry_price <= 0 or stop_loss <= 0:
-            self.logger.error("Invalid entry or stop loss price")
-            return {'shares': 0, 'position_value': 0, 'risk_amount': 0}
-            
-        # Calculate risk per share
-        risk_per_share = abs(entry_price - stop_loss)
-        
-        if risk_per_share == 0:
-            self.logger.error("Risk per share is zero")
-            return {'shares': 0, 'position_value': 0, 'risk_amount': 0}
-            
-        # Calculate position size based on method
-        if method == 'fixed':
-            result = self._fixed_risk_sizing(capital, risk_per_share)
-        elif method == 'volatility':
-            result = self._volatility_adjusted_sizing(capital, risk_per_share, volatility)
-        elif method == 'kelly':
-            result = self._kelly_criterion_sizing(capital, entry_price, risk_per_share, 
-                                                  win_rate, win_loss_ratio)
-        elif method == 'optimal_f':
-            result = self._optimal_f_sizing(capital, risk_per_share)
-        else:
-            self.logger.warning(f"Unknown method {method}, using fixed")
-            result = self._fixed_risk_sizing(capital, risk_per_share)
-            
-        # Apply portfolio-level constraints
-        result = self._apply_portfolio_constraints(result, capital)
-        
-        return result
-        
-    def _fixed_risk_sizing(self, capital: float, risk_per_share: float) -> Dict:
-        """
-        Fixed percentage risk per trade
-        
-        Args:
-            capital: Available capital
-            risk_per_share: Risk amount per share
-            
-        Returns:
-            Position size details
-        """
-        risk_amount = capital * self.max_single_trade_risk
-        shares = int(risk_amount / risk_per_share)
-        
-        return {
-            'method': 'fixed_risk',
-            'shares': shares,
-            'position_value': 0,  # Will be set by caller
-            'risk_amount': risk_amount,
-            'risk_percentage': self.max_single_trade_risk * 100
-        }
-        
-    def _volatility_adjusted_sizing(self, 
-                                    capital: float,
-                                    risk_per_share: float,
-                                    volatility: Optional[float]) -> Dict:
-        """
-        Volatility-adjusted position sizing
-        Reduce position size in high volatility conditions
-        
-        Args:
-            capital: Available capital
-            risk_per_share: Risk amount per share
-            volatility: Asset volatility (annualized)
-            
-        Returns:
-            Position size details
-        """
-        if volatility is None or volatility <= 0:
-            # Fallback to fixed risk
-            return self._fixed_risk_sizing(capital, risk_per_share)
-            
-        # Adjust risk based on volatility
-        # Higher volatility = smaller position
-        base_volatility = 0.3  # 30% annualized as baseline
-        volatility_adjustment = min(1.0, base_volatility / volatility)
-        
-        adjusted_risk = self.max_single_trade_risk * volatility_adjustment
-        risk_amount = capital * adjusted_risk
-        shares = int(risk_amount / risk_per_share)
-        
-        return {
-            'method': 'volatility_adjusted',
-            'shares': shares,
-            'position_value': 0,
-            'risk_amount': risk_amount,
-            'risk_percentage': adjusted_risk * 100,
-            'volatility': volatility,
-            'volatility_adjustment': volatility_adjustment
-        }
-        
-    def _kelly_criterion_sizing(self,
-                                capital: float,
-                                entry_price: float,
-                                risk_per_share: float,
-                                win_rate: Optional[float],
-                                win_loss_ratio: Optional[float]) -> Dict:
+        return min(position_size, max_size)
+    
+    def calculate_kelly_criterion(self, win_rate: float, avg_win: float, 
+                                  avg_loss: float, portfolio_value: float,
+                                  fraction: float = 0.25) -> float:
         """
         Kelly Criterion position sizing
-        Optimal bet size based on edge
         
         Args:
-            capital: Available capital
-            entry_price: Entry price
-            risk_per_share: Risk per share
             win_rate: Historical win rate (0-1)
-            win_loss_ratio: Average win/loss ratio
+            avg_win: Average winning trade amount
+            avg_loss: Average losing trade amount (positive)
+            portfolio_value: Total portfolio value
+            fraction: Fraction of Kelly to use (0-1), default 0.25 for safety
             
         Returns:
-            Position size details
+            Position size in portfolio currency
         """
-        # Default to conservative values if not provided
-        win_rate = win_rate or 0.55  # 55% win rate
-        win_loss_ratio = win_loss_ratio or 1.5  # 1.5:1 win/loss ratio
+        if avg_loss <= 0 or win_rate <= 0:
+            self.logger.warning("Invalid parameters for Kelly criterion")
+            return self.calculate_fixed_fractional(portfolio_value)
         
         # Kelly formula: f = (p * b - q) / b
-        # where p = win probability, q = loss probability, b = win/loss ratio
-        p = win_rate
-        q = 1 - win_rate
-        b = win_loss_ratio
+        # where p = win_rate, q = 1-p, b = avg_win/avg_loss
+        win_loss_ratio = avg_win / avg_loss
+        kelly_fraction = (win_rate * win_loss_ratio - (1 - win_rate)) / win_loss_ratio
         
-        kelly_percentage = (p * b - q) / b
+        # Apply safety fraction
+        kelly_fraction = kelly_fraction * fraction
         
-        # Apply fractional Kelly for safety
-        kelly_percentage = max(0, kelly_percentage * self.kelly_fraction)
+        # Ensure non-negative and within limits
+        kelly_fraction = max(0, min(kelly_fraction, self.max_position_pct))
         
-        # Cap at max single trade risk
-        kelly_percentage = min(kelly_percentage, self.max_single_trade_risk)
+        position_size = portfolio_value * kelly_fraction
         
-        risk_amount = capital * kelly_percentage
-        shares = int(risk_amount / risk_per_share)
-        
-        return {
-            'method': 'kelly_criterion',
-            'shares': shares,
-            'position_value': 0,
-            'risk_amount': risk_amount,
-            'risk_percentage': kelly_percentage * 100,
-            'win_rate': win_rate,
-            'win_loss_ratio': win_loss_ratio,
-            'kelly_fraction': self.kelly_fraction
-        }
-        
-    def _optimal_f_sizing(self, capital: float, risk_per_share: float) -> Dict:
+        self.logger.debug(f"Kelly position size: {position_size:.2f} ({kelly_fraction:.2%} of portfolio)")
+        return position_size
+    
+    def calculate_volatility_based(self, portfolio_value: float, 
+                                   volatility: float, target_volatility: float = 0.15,
+                                   price: float = 1.0) -> float:
         """
-        Optimal F position sizing
-        Based on Ralph Vince's Optimal f
+        Volatility-based position sizing (Vol targeting)
         
         Args:
-            capital: Available capital
-            risk_per_share: Risk per share
+            portfolio_value: Total portfolio value
+            volatility: Asset volatility (annualized std dev)
+            target_volatility: Target portfolio volatility
+            price: Current asset price
             
         Returns:
-            Position size details
+            Position size in units
         """
-        # Simplified optimal f (would need historical trade data for true calculation)
-        # Using conservative estimate
-        optimal_f = 0.2  # 20% of capital
+        if volatility <= 0:
+            self.logger.warning("Invalid volatility, using fixed fractional")
+            return self.calculate_fixed_fractional(portfolio_value) / price
         
-        # Cap at max single trade risk
-        optimal_f = min(optimal_f, self.max_single_trade_risk)
+        # Scale position inversely with volatility
+        volatility_scalar = target_volatility / volatility
+        position_value = portfolio_value * volatility_scalar * self.max_position_pct
         
-        risk_amount = capital * optimal_f
-        shares = int(risk_amount / risk_per_share)
+        # Cap at max position size
+        max_value = portfolio_value * self.max_position_pct
+        position_value = min(position_value, max_value)
         
-        return {
-            'method': 'optimal_f',
-            'shares': shares,
-            'position_value': 0,
-            'risk_amount': risk_amount,
-            'risk_percentage': optimal_f * 100,
-            'optimal_f': optimal_f
-        }
+        # Convert to units
+        position_units = position_value / price
         
-    def _apply_portfolio_constraints(self, result: Dict, capital: float) -> Dict:
+        self.logger.debug(f"Volatility-based position: {position_units:.4f} units (value: {position_value:.2f})")
+        return position_units
+    
+    def calculate_risk_based(self, portfolio_value: float, entry_price: float,
+                            stop_loss: float, risk_amount: float) -> float:
         """
-        Apply portfolio-level risk constraints
+        Risk-based position sizing (fixed $ risk per trade)
         
         Args:
-            result: Initial position size calculation
-            capital: Total capital
-            
-        Returns:
-            Adjusted position size
-        """
-        # Ensure we don't exceed maximum single trade risk
-        max_risk_amount = capital * self.max_single_trade_risk
-        
-        if result['risk_amount'] > max_risk_amount:
-            adjustment_factor = max_risk_amount / result['risk_amount']
-            result['shares'] = int(result['shares'] * adjustment_factor)
-            result['risk_amount'] = max_risk_amount
-            result['constrained'] = True
-            self.logger.info("Position size constrained by max single trade risk")
-        else:
-            result['constrained'] = False
-            
-        return result
-        
-    def calculate_pyramid_sizes(self,
-                               initial_capital: float,
-                               entry_price: float,
-                               stop_loss: float,
-                               n_levels: int = 3) -> List[Dict]:
-        """
-        Calculate position sizes for pyramiding strategy
-        
-        Args:
-            initial_capital: Starting capital
-            entry_price: Initial entry price
+            portfolio_value: Total portfolio value
+            entry_price: Entry price
             stop_loss: Stop loss price
-            n_levels: Number of pyramid levels
+            risk_amount: Amount to risk in portfolio currency
             
         Returns:
-            List of position sizes for each level
+            Position size in units
         """
-        pyramid_positions = []
+        if entry_price <= 0 or stop_loss <= 0:
+            self.logger.warning("Invalid prices for risk-based sizing")
+            return 0.0
         
-        # Decrease position size at each level
-        size_reduction = 0.6  # Each level is 60% of previous
+        # Calculate risk per unit
+        risk_per_unit = abs(entry_price - stop_loss)
         
-        remaining_capital = initial_capital
-        current_entry = entry_price
+        if risk_per_unit <= 0:
+            self.logger.warning("Invalid risk per unit")
+            return 0.0
         
-        for level in range(n_levels):
-            # Calculate position for this level
-            position = self.calculate_position_size(
-                remaining_capital,
-                current_entry,
-                stop_loss,
-                method='fixed'
+        # Calculate position size
+        position_units = risk_amount / risk_per_unit
+        
+        # Cap at max position value
+        position_value = position_units * entry_price
+        max_value = portfolio_value * self.max_position_pct
+        
+        if position_value > max_value:
+            position_units = max_value / entry_price
+            
+        self.logger.debug(f"Risk-based position: {position_units:.4f} units (risk: {risk_amount:.2f})")
+        return position_units
+    
+    def calculate_optimal_position(self, portfolio_value: float, 
+                                   entry_price: float,
+                                   stop_loss: Optional[float] = None,
+                                   volatility: Optional[float] = None,
+                                   win_rate: Optional[float] = None,
+                                   avg_win: Optional[float] = None,
+                                   avg_loss: Optional[float] = None,
+                                   strategy: str = 'adaptive') -> Dict:
+        """
+        Calculate optimal position size using specified strategy
+        
+        Args:
+            portfolio_value: Total portfolio value
+            entry_price: Entry price
+            stop_loss: Stop loss price (optional)
+            volatility: Asset volatility (optional)
+            win_rate: Historical win rate (optional)
+            avg_win: Average win amount (optional)
+            avg_loss: Average loss amount (optional)
+            strategy: Sizing strategy ('fixed', 'kelly', 'volatility', 'risk', 'adaptive')
+            
+        Returns:
+            Dict with position sizing details
+        """
+        if portfolio_value <= 0 or entry_price <= 0:
+            return {
+                'units': 0.0,
+                'value': 0.0,
+                'strategy': strategy,
+                'valid': False,
+                'reason': 'Invalid input parameters'
+            }
+        
+        position_units = 0.0
+        
+        if strategy == 'fixed':
+            position_value = self.calculate_fixed_fractional(portfolio_value)
+            position_units = position_value / entry_price
+            
+        elif strategy == 'kelly' and win_rate and avg_win and avg_loss:
+            position_value = self.calculate_kelly_criterion(
+                win_rate, avg_win, avg_loss, portfolio_value
+            )
+            position_units = position_value / entry_price
+            
+        elif strategy == 'volatility' and volatility:
+            position_units = self.calculate_volatility_based(
+                portfolio_value, volatility, price=entry_price
             )
             
-            if position['shares'] == 0:
-                break
+        elif strategy == 'risk' and stop_loss:
+            risk_amount = portfolio_value * 0.02  # 2% risk per trade
+            position_units = self.calculate_risk_based(
+                portfolio_value, entry_price, stop_loss, risk_amount
+            )
+            
+        elif strategy == 'adaptive':
+            # Use best available method
+            methods = []
+            
+            if stop_loss:
+                risk_amount = portfolio_value * 0.02
+                risk_units = self.calculate_risk_based(
+                    portfolio_value, entry_price, stop_loss, risk_amount
+                )
+                methods.append(('risk', risk_units))
                 
-            pyramid_positions.append({
-                'level': level + 1,
-                'shares': position['shares'],
-                'entry_price': current_entry,
-                'risk_amount': position['risk_amount']
-            })
+            if volatility:
+                vol_units = self.calculate_volatility_based(
+                    portfolio_value, volatility, price=entry_price
+                )
+                methods.append(('volatility', vol_units))
+                
+            if win_rate and avg_win and avg_loss:
+                kelly_value = self.calculate_kelly_criterion(
+                    win_rate, avg_win, avg_loss, portfolio_value
+                )
+                kelly_units = kelly_value / entry_price
+                methods.append(('kelly', kelly_units))
             
-            # Adjust for next level
-            remaining_capital -= position['risk_amount']
-            remaining_capital *= size_reduction
-            current_entry *= 1.02  # Assume 2% higher entry for next level
-            
-        return pyramid_positions
+            if not methods:
+                # Fallback to fixed fractional
+                fixed_value = self.calculate_fixed_fractional(portfolio_value)
+                position_units = fixed_value / entry_price
+            else:
+                # Use average of available methods
+                position_units = np.mean([units for _, units in methods])
+                
+        else:
+            # Default to fixed fractional
+            position_value = self.calculate_fixed_fractional(portfolio_value)
+            position_units = position_value / entry_price
         
-    def scale_out_sizes(self,
-                       total_shares: int,
-                       n_levels: int = 3,
-                       strategy: str = 'equal') -> List[Dict]:
+        # Calculate position value
+        position_value = position_units * entry_price
+        
+        # Apply leverage if needed
+        leveraged_value = position_value
+        leverage_used = 1.0
+        
+        if position_value > portfolio_value:
+            leverage_used = position_value / portfolio_value
+            if leverage_used > self.max_leverage:
+                # Scale down to max leverage
+                position_units = (portfolio_value * self.max_leverage) / entry_price
+                position_value = position_units * entry_price
+                leverage_used = self.max_leverage
+        
+        # Calculate position metrics
+        position_pct = (position_value / leverage_used) / portfolio_value
+        
+        return {
+            'units': position_units,
+            'value': position_value,
+            'position_pct': position_pct,
+            'leverage': leverage_used,
+            'strategy': strategy,
+            'valid': True,
+            'entry_price': entry_price,
+            'max_loss': abs(entry_price - stop_loss) * position_units if stop_loss else None,
+            'max_loss_pct': abs(entry_price - stop_loss) / entry_price if stop_loss else None
+        }
+    
+    def adjust_position_for_correlation(self, base_position: Dict, 
+                                       correlation: float,
+                                       reduction_factor: float = 0.5) -> Dict:
         """
-        Calculate position sizes for scaling out
+        Adjust position size based on portfolio correlation
         
         Args:
-            total_shares: Total position size
-            n_levels: Number of exit levels
-            strategy: 'equal', 'decreasing', or 'increasing'
+            base_position: Base position dict from calculate_optimal_position
+            correlation: Correlation with existing positions (-1 to 1)
+            reduction_factor: How much to reduce for high correlation (0-1)
             
         Returns:
-            List of shares to exit at each level
+            Adjusted position dict
         """
-        if strategy == 'equal':
-            # Equal size at each level
-            shares_per_level = total_shares // n_levels
-            scales = [{'level': i+1, 'shares': shares_per_level} for i in range(n_levels)]
+        if not base_position.get('valid', False):
+            return base_position
+        
+        # Reduce position for highly correlated assets
+        correlation_penalty = abs(correlation) * reduction_factor
+        adjustment = 1.0 - correlation_penalty
+        
+        adjusted_position = base_position.copy()
+        adjusted_position['units'] *= adjustment
+        adjusted_position['value'] *= adjustment
+        adjusted_position['correlation_adjusted'] = True
+        adjusted_position['correlation'] = correlation
+        adjusted_position['adjustment_factor'] = adjustment
+        
+        self.logger.info(f"Adjusted position for correlation {correlation:.2f}: "
+                        f"{adjustment:.2%} of original")
+        
+        return adjusted_position
+    
+    def calculate_pyramid_sizing(self, portfolio_value: float, 
+                                entry_price: float,
+                                num_entries: int = 3,
+                                total_position_pct: float = 0.1) -> List[Dict]:
+        """
+        Calculate position sizes for pyramiding into a position
+        
+        Args:
+            portfolio_value: Total portfolio value
+            entry_price: Initial entry price
+            num_entries: Number of pyramid entries
+            total_position_pct: Total position as % of portfolio
             
-            # Add remainder to last level
-            remainder = total_shares - (shares_per_level * n_levels)
-            scales[-1]['shares'] += remainder
+        Returns:
+            List of position dicts for each entry
+        """
+        if num_entries <= 0:
+            return []
+        
+        total_value = portfolio_value * total_position_pct
+        entries = []
+        
+        # Decreasing position sizes (e.g., 50%, 30%, 20%)
+        weights = [1.0 / (i + 1) for i in range(num_entries)]
+        total_weight = sum(weights)
+        weights = [w / total_weight for w in weights]
+        
+        for i, weight in enumerate(weights):
+            entry_value = total_value * weight
+            entry_units = entry_value / entry_price
             
-        elif strategy == 'decreasing':
-            # Larger exits early
-            weights = [2.0 ** (n_levels - i) for i in range(n_levels)]
-            total_weight = sum(weights)
+            entries.append({
+                'entry_number': i + 1,
+                'units': entry_units,
+                'value': entry_value,
+                'weight': weight,
+                'entry_price': entry_price
+            })
+        
+        self.logger.info(f"Calculated {num_entries} pyramid entries")
+        return entries
+    
+    def calculate_scaling_out(self, position_units: float, 
+                              num_exits: int = 3) -> List[Dict]:
+        """
+        Calculate position sizes for scaling out of a position
+        
+        Args:
+            position_units: Total position size in units
+            num_exits: Number of exit points
             
-            scales = []
-            remaining = total_shares
-            
-            for i, weight in enumerate(weights[:-1]):
-                shares = int(total_shares * weight / total_weight)
-                scales.append({'level': i+1, 'shares': shares})
-                remaining -= shares
+        Returns:
+            List of exit dicts
+        """
+        if num_exits <= 0 or position_units <= 0:
+            return []
+        
+        exits = []
+        remaining_units = position_units
+        
+        # Increasing exit sizes (e.g., 30%, 30%, 40%)
+        for i in range(num_exits):
+            if i == num_exits - 1:
+                # Last exit takes all remaining
+                exit_units = remaining_units
+            else:
+                # Proportional exits
+                exit_units = position_units / num_exits
                 
-            # Last level gets remainder
-            scales.append({'level': n_levels, 'shares': remaining})
+            exits.append({
+                'exit_number': i + 1,
+                'units': exit_units,
+                'pct_of_position': exit_units / position_units
+            })
             
-        elif strategy == 'increasing':
-            # Larger exits late
-            weights = [2.0 ** i for i in range(n_levels)]
-            total_weight = sum(weights)
-            
-            scales = []
-            remaining = total_shares
-            
-            for i, weight in enumerate(weights[:-1]):
-                shares = int(total_shares * weight / total_weight)
-                scales.append({'level': i+1, 'shares': shares})
-                remaining -= shares
-                
-            # Last level gets remainder
-            scales.append({'level': n_levels, 'shares': remaining})
-            
-        else:
-            raise ValueError(f"Unknown scaling strategy: {strategy}")
-            
-        return scales
+            remaining_units -= exit_units
+        
+        self.logger.info(f"Calculated {num_exits} scaling exits")
+        return exits

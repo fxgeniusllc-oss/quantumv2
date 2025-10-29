@@ -1,76 +1,49 @@
-# Multi-stage Dockerfile for Quantum Market Domination System
-
-# Stage 1: Python build environment
-FROM python:3.11-slim as python-builder
+# Quantum Market Domination System - Docker Image
+FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    make \
-    libssl-dev \
+    build-essential \
+    curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+# Install Node.js (for DeFi components)
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
-# Stage 2: Node.js build environment
-FROM node:18-slim as node-builder
+# Copy requirements first for better caching
+COPY requirements.txt package.json ./
 
-WORKDIR /app
-
-# Copy package files
-COPY package.json package-lock.json* ./
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Node.js dependencies
-RUN npm ci --production
-
-# Stage 3: Final runtime image
-FROM python:3.11-slim
-
-# Set working directory
-WORKDIR /app
-
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy Python dependencies from builder
-COPY --from=python-builder /root/.local /root/.local
-
-# Copy Node.js runtime and dependencies from builder
-COPY --from=node-builder /usr/local/bin/node /usr/local/bin/
-COPY --from=node-builder /app/node_modules ./node_modules
+RUN npm install
 
 # Copy application code
 COPY . .
 
-# Make scripts executable
-RUN chmod +x *.py
+# Create necessary directories
+RUN mkdir -p /app/data /app/logs /app/secrets
 
-# Set Python path
-ENV PATH=/root/.local/bin:$PATH
+# Set permissions
+RUN find /app/secrets -type f -exec chmod 600 {} \; 2>/dev/null || true
+
+# Environment variables
+ENV ENVIRONMENT=production
 ENV PYTHONUNBUFFERED=1
 
-# Create directories for secrets and logs
-RUN mkdir -p secrets logs
-
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import sys; sys.exit(0)"
+
+# Expose ports (if needed for monitoring/API)
+EXPOSE 8080
 
 # Default command
 CMD ["python", "main.py"]
-
-# Expose ports if needed (uncomment if running web services)
-# EXPOSE 8000
-
-# Labels
-LABEL maintainer="Quantum Market Domination Team"
-LABEL version="2.0"
-LABEL description="Advanced algorithmic trading system with ML and DeFi capabilities"

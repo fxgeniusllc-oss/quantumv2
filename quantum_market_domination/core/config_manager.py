@@ -153,3 +153,66 @@ class QuantumConfigManager:
     def get_log_level(self):
         """Get logging level"""
         return os.getenv('LOG_LEVEL', 'INFO')
+
+    def get_liquidity_pools(self):
+        """
+        Retrieve liquidity pool configurations for DeFi operations
+        
+        Returns:
+            Dictionary with liquidity pool configurations
+        """
+        return {
+            'uniswap_v3': {
+                'address': '0x1f98431c8ad98523631ae4a59f267346ea31f984',
+                'min_liquidity': 1_000_000,
+                'fee_tier': 0.01
+            },
+            'curve_3pool': {
+                'address': '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7',
+                'min_liquidity': 10_000_000,
+                'fee_tier': 0.001
+            },
+            'pancakeswap': {
+                'address': '0x10ED43C718714eb63d5aA57B78B54704E256024E',
+                'min_liquidity': 1_000_000,
+                'fee_tier': 0.0025
+            }
+        }
+
+    def get_flashloan_configs(self):
+        """
+        Retrieve flashloan configurations
+        
+        Returns:
+            Dictionary with flashloan configurations
+        """
+        return {
+            'aave_v3': {
+                'pool_address': '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2',
+                'max_loan_size': 10_000_000,  # USDC
+                'supported_assets': ['USDC', 'USDT', 'DAI', 'WETH', 'WBTC']
+            },
+            'dydx': {
+                'pool_address': '0x1E0447b19BB6EcFdAe1e4AE1694b0C3659614e4e',
+                'max_loan_size': 5_000_000,
+                'supported_assets': ['USDC', 'USDT', 'DAI']
+            }
+        }
+
+    def get_private_key(self):
+        """
+        Get private key from environment for blockchain transactions
+        
+        Returns:
+            Private key string
+        """
+        return os.getenv('PRIVATE_KEY', '')
+
+    def get_flashbots_auth_key(self):
+        """
+        Get Flashbots authentication key
+        
+        Returns:
+            Flashbots auth key string
+        """
+        return os.getenv('FLASHBOTS_AUTH_KEY', '')
