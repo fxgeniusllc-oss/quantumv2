@@ -5,25 +5,98 @@ Get the Quantum Market Domination System running in 5 minutes!
 ## Prerequisites
 
 - Python 3.9+
+- Node.js 16+ (optional, for DeFi features)
 - 4GB RAM minimum
 - Internet connection
 
-## Installation
+## Easy Installation (Recommended)
+
+### Windows Users
+
+Use the automated installation and deployment script:
+
+```batch
+# Run the complete installation and setup
+install-and-deploy.bat
+
+# For production environment
+install-and-deploy.bat production
+```
+
+The script will automatically:
+- ✅ Check all prerequisites (Python, Node.js, Yarn, Git)
+- ✅ Create Python virtual environment
+- ✅ Install all Python dependencies
+- ✅ Install all Node.js dependencies with Yarn
+- ✅ Create necessary directories
+- ✅ Set up configuration files
+- ✅ Run system tests
+
+### Linux/Mac Users
+
+Use the automated setup script:
 
 ```bash
 # 1. Clone repository
 git clone https://github.com/fxgeniusllc-oss/quantumv2.git
 cd quantumv2
 
-# 2. Install dependencies
+# 2. Run automated setup (includes all dependencies and tests)
+./setup.sh
+```
+
+The setup script will:
+- ✅ Check Python and Node.js versions
+- ✅ Create virtual environment
+- ✅ Install Python dependencies
+- ✅ Install Node.js dependencies with Yarn
+- ✅ Create necessary directories
+- ✅ Set up .env configuration
+- ✅ Run initial test suite
+
+## Manual Installation
+
+If you prefer manual installation:
+
+```bash
+# 1. Clone repository
+git clone https://github.com/fxgeniusllc-oss/quantumv2.git
+cd quantumv2
+
+# 2. Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate.bat
+
+# 3. Install Python dependencies
 pip install -r requirements.txt
 
-# 3. Configure environment
+# 4. Install Node.js dependencies (optional, for DeFi features)
+yarn install
+
+# 5. Configure environment
 cp .env.example .env
 # Edit .env with your API credentials
 
-# 4. Run tests (verify installation)
+# 6. Run tests (verify installation)
 pytest tests/ -v
+```
+
+## Building with Yarn
+
+All Node.js operations now use Yarn for better dependency management:
+
+```bash
+# Install dependencies
+yarn install
+
+# Run build (if needed)
+yarn build
+
+# Run tests
+yarn test
+
+# Start Node.js engine
+yarn start
 ```
 
 ## Quick Test Run

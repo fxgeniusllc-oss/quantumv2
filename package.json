@@ -5,7 +5,10 @@
   "main": "ultimate-defi-domination/engines/node_engine/tx_executor.js",
   "scripts": {
     "start": "node ultimate-defi-domination/engines/node_engine/tx_executor.js",
-    "test": "jest"
+    "test": "jest",
+    "build": "echo 'No build step required for this project'",
+    "install:all": "yarn install",
+    "deploy": "node ultimate-defi-domination/engines/node_engine/tx_executor.js"
   },
   "keywords": [
     "defi",

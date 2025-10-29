@@ -266,11 +266,17 @@ Core Python package dependencies:
 - `pytest>=7.4.0` - Testing framework
 
 #### `package.json` - Node.js Dependencies
-DeFi and blockchain-specific JavaScript packages:
+DeFi and blockchain-specific JavaScript packages managed with Yarn:
 - `ethers` - Ethereum library
 - `@flashbots/ethers-provider-bundle` - MEV extraction
 - `web3` - Web3 provider
 - `dotenv` - Environment management
+
+**Note**: All Node.js dependencies are managed with Yarn for better performance and reliability. Available scripts:
+- `yarn install` - Install all dependencies
+- `yarn start` - Start Node.js transaction executor
+- `yarn test` - Run Jest tests
+- `yarn build` - Build project components
 
 #### `.env.example` - Environment Template
 Template for environment variables including:
@@ -1422,7 +1428,25 @@ contract FlashloanAggregator is FlashLoanSimpleReceiverBase {
 
 ### Automated Setup (Recommended)
 
-The easiest way to set up the environment is using the provided setup script:
+The easiest way to set up the environment is using the provided setup scripts:
+
+#### Windows Users
+
+```batch
+# Clone the repository
+git clone https://github.com/fxgeniusllc-oss/quantumv2.git
+cd quantumv2
+
+# Run automated installation and deployment
+install-and-deploy.bat
+```
+
+For production environment:
+```batch
+install-and-deploy.bat production
+```
+
+#### Linux/Mac Users
 
 ```bash
 # Clone the repository
@@ -1433,15 +1457,20 @@ cd quantumv2
 ./setup.sh
 ```
 
-The setup script automatically:
+The setup scripts automatically:
 - ✅ Checks Python and Node.js versions
+- ✅ Installs Yarn globally if not present
 - ✅ Creates Python virtual environment
 - ✅ Installs all Python dependencies from requirements.txt
-- ✅ Installs Node.js dependencies (if npm is available)
+- ✅ Installs Node.js dependencies with Yarn (better performance than npm)
 - ✅ Creates necessary directories (secrets, logs, data)
 - ✅ Copies .env.example to .env
-- ✅ Sets up pre-commit hooks
+- ✅ Sets up pre-commit hooks (Linux/Mac)
 - ✅ Runs initial test suite
+
+> **Note**: All Node.js dependencies are now managed with **Yarn** instead of npm for better dependency resolution and faster installation.
+
+For detailed installation instructions, see [INSTALL_DEPLOY.md](INSTALL_DEPLOY.md).
 
 ### Manual Setup
 
@@ -1483,7 +1512,11 @@ pip install -r requirements.txt
 For DeFi features and smart contract interactions:
 
 ```bash
-npm install
+# Install Yarn globally (if not already installed)
+npm install -g yarn
+
+# Install dependencies with Yarn
+yarn install
 ```
 
 **Node.js Dependencies Installed:**

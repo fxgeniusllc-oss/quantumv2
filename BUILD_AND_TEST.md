@@ -4,14 +4,27 @@
 
 ### Installation
 
+> **Recommended:** Use the automated installation scripts. See [INSTALL_DEPLOY.md](INSTALL_DEPLOY.md) for details.
+
+#### Manual Installation
+
 1. **Install Python Dependencies**
 ```bash
 pip install -r requirements.txt
 ```
 
-2. **Install Node.js Dependencies**
+2. **Install Node.js Dependencies with Yarn**
 ```bash
-npm install
+# Install Yarn if not already installed
+# Option 1: Using npm (may require sudo on Linux/Mac)
+npm install -g yarn
+
+# Option 2: Using package managers
+# Mac (Homebrew): brew install yarn
+# Linux (Debian/Ubuntu): curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add - && echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list && sudo apt update && sudo apt install yarn
+
+# Install dependencies
+yarn install
 ```
 
 ### Running the System
