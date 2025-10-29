@@ -294,7 +294,7 @@ class TestComplianceChecker:
 
 
 class TestDataCompressor:
-    """Test compression engine"""
+    """Test data compressor"""
     
     def test_compression_engine_initialization(self):
         engine = DataCompressor()
