@@ -359,3 +359,21 @@ class LockManager:
             }
         
         return status
+
+
+# Global lock manager instance
+_global_lock_manager = None
+
+
+def get_lock_manager() -> LockManager:
+    """
+    Get the global lock manager instance.
+    Creates one if it doesn't exist.
+    
+    Returns:
+        LockManager: Global lock manager instance
+    """
+    global _global_lock_manager
+    if _global_lock_manager is None:
+        _global_lock_manager = LockManager()
+    return _global_lock_manager
