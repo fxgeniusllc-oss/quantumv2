@@ -15,9 +15,9 @@ from quantum_market_domination.intelligence.predictive_surface import Predictive
 from quantum_market_domination.intelligence.opportunity_evaluator import OpportunityEvaluator, OpportunityType
 from quantum_market_domination.execution.position_sizer import PositionSizer
 from quantum_market_domination.monitoring.performance_tracker import PerformanceTracker
-from quantum_market_domination.monitoring.alert_system import AlertSystem, AlertSeverity
+from quantum_market_domination.monitoring.alert_system import AlertSystem, AlertLevel
 from quantum_market_domination.monitoring.compliance_checker import ComplianceChecker
-from quantum_market_domination.utils.compression import CompressionEngine
+from quantum_market_domination.utils.compression import DataCompressor
 from quantum_market_domination.utils.distributed_lock import LockManager
 
 
@@ -233,14 +233,14 @@ class TestAlertSystem:
         alert_sys = AlertSystem()
         
         alert = alert_sys.send_alert(
-            severity=AlertSeverity.WARNING,
+            severity=AlertLevel.WARNING,
             category='test',
             message='Test alert',
             details={'key': 'value'}
         )
         
         assert alert is not None
-        assert alert.severity == AlertSeverity.WARNING
+        assert alert.severity == AlertLevel.WARNING
         assert alert.message == 'Test alert'
         
     def test_get_recent_alerts(self):
@@ -248,7 +248,7 @@ class TestAlertSystem:
         
         for i in range(5):
             alert_sys.send_alert(
-                severity=AlertSeverity.INFO,
+                severity=AlertLevel.INFO,
                 category='test',
                 message=f'Alert {i}'
             )
@@ -293,15 +293,15 @@ class TestComplianceChecker:
         assert 'trade_counts' in result
 
 
-class TestCompressionEngine:
+class TestDataCompressor:
     """Test compression engine"""
     
     def test_compression_engine_initialization(self):
-        engine = CompressionEngine()
+        engine = DataCompressor()
         assert engine is not None
         
     def test_compress_decompress_zlib(self):
-        engine = CompressionEngine()
+        engine = DataCompressor()
         
         data = {'test': 'data', 'numbers': [1, 2, 3, 4, 5]}
         
@@ -313,7 +313,7 @@ class TestCompressionEngine:
         assert decompressed == data
         
     def test_benchmark_algorithms(self):
-        engine = CompressionEngine()
+        engine = DataCompressor()
         
         data = "Test data " * 100
         results = engine.benchmark_algorithms(data)
