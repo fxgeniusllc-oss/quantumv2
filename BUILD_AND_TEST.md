@@ -4,14 +4,22 @@
 
 ### Installation
 
+> **Recommended:** Use the automated installation scripts. See [INSTALL_DEPLOY.md](INSTALL_DEPLOY.md) for details.
+
+#### Manual Installation
+
 1. **Install Python Dependencies**
 ```bash
 pip install -r requirements.txt
 ```
 
-2. **Install Node.js Dependencies**
+2. **Install Node.js Dependencies with Yarn**
 ```bash
-npm install
+# Install Yarn if not already installed
+npm install -g yarn
+
+# Install dependencies
+yarn install
 ```
 
 ### Running the System

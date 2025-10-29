@@ -4,14 +4,40 @@
 
 This guide provides step-by-step instructions for deploying the Quantum Market Domination System in various environments.
 
+> **New!** We now provide automated installation scripts for both Windows and Linux/Mac. See [INSTALL_DEPLOY.md](INSTALL_DEPLOY.md) for detailed instructions.
+
 ## Prerequisites
 
 - Python 3.9 or higher
 - Node.js 16 or higher
+- Yarn (installed automatically by setup scripts)
 - 4GB+ RAM recommended
-- Linux/macOS/Windows with WSL2
+- Linux/macOS/Windows
 
 ## Quick Deployment
+
+### Option 1: Automated Installation (Recommended)
+
+#### Windows Users
+
+```batch
+# Run the complete installation and deployment
+install-and-deploy.bat
+
+# For production environment
+install-and-deploy.bat production
+```
+
+#### Linux/Mac Users
+
+```bash
+# Run automated setup
+./setup.sh
+```
+
+See [INSTALL_DEPLOY.md](INSTALL_DEPLOY.md) for complete documentation.
+
+### Option 2: Manual Installation
 
 ### 1. Environment Setup
 
@@ -26,7 +52,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
-npm install
+yarn install  # Use Yarn instead of npm
 ```
 
 ### 2. Configuration
