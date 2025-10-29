@@ -1,3 +1,5 @@
+# Quantum Market Domination System - Docker Compose
+# IMPORTANT: Ensure secrets directory has proper permissions (chmod 600) before running
 version: '3.8'
 
 services:

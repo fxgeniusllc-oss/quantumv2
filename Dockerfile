@@ -32,7 +32,7 @@ COPY . .
 RUN mkdir -p /app/data /app/logs /app/secrets
 
 # Set permissions
-RUN chmod 600 secrets/* 2>/dev/null || true
+RUN find /app/secrets -type f -exec chmod 600 {} \; 2>/dev/null || true
 
 # Environment variables
 ENV ENVIRONMENT=production

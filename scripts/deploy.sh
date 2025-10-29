@@ -53,14 +53,24 @@ backup_deployment() {
 # Install dependencies
 install_dependencies() {
     log "Installing system dependencies..."
-    apt-get update
-    apt-get install -y python3 python3-pip python3-venv nodejs npm git
+    if ! apt-get update; then
+        error "Failed to update package lists"
+    fi
+    
+    if ! apt-get install -y python3 python3-pip python3-venv nodejs npm git; then
+        error "Failed to install system dependencies"
+    fi
+    
+    # Clean up
+    apt-get clean && rm -rf /var/lib/apt/lists/*
     
     log "Installing Python dependencies..."
-    pip3 install -r requirements.txt
+    if ! pip3 install -r "$APP_DIR/requirements.txt"; then
+        error "Failed to install Python dependencies"
+    fi
     
     log "Installing Node.js dependencies..."
-    npm install
+    cd "$APP_DIR" && npm install
 }
 
 # Setup environment
@@ -92,9 +102,9 @@ setup_environment() {
 # Run tests
 run_tests() {
     log "Running tests..."
-    cd "$APP_DIR"
     
-    if python3 -m pytest tests/ -v; then
+    # Run tests in a subshell to avoid directory change side effects
+    if (cd "$APP_DIR" && python3 -m pytest tests/ -v); then
         log "All tests passed"
     else
         error "Tests failed! Aborting deployment."
