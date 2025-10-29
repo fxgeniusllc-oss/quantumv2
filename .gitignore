@@ -72,3 +72,15 @@ htmlcov/
 tmp/
 temp/
 *.tmp
+
+# Deployment
+data/
+backups/
+*.pid
+
+# Docker
+.dockerignore
+
+# Lock files
+/tmp/quantum_locks/
+

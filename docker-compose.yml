@@ -1,0 +1,49 @@
+# Quantum Market Domination System - Docker Compose
+# IMPORTANT: Ensure secrets directory has proper permissions (chmod 600) before running
+version: '3.8'
+
+services:
+  quantum-trading:
+    build: .
+    container_name: quantum-trading
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./secrets:/app/secrets:ro
+    networks:
+      - quantum-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  quantum-defi:
+    build: .
+    container_name: quantum-defi
+    restart: unless-stopped
+    command: python defi_main.py
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./secrets:/app/secrets:ro
+    networks:
+      - quantum-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  quantum-network:
+    driver: bridge
