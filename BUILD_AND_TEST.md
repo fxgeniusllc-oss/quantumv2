@@ -16,7 +16,12 @@ pip install -r requirements.txt
 2. **Install Node.js Dependencies with Yarn**
 ```bash
 # Install Yarn if not already installed
+# Option 1: Using npm (may require sudo on Linux/Mac)
 npm install -g yarn
+
+# Option 2: Using package managers
+# Mac (Homebrew): brew install yarn
+# Linux (Debian/Ubuntu): curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add - && echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list && sudo apt update && sudo apt install yarn
 
 # Install dependencies
 yarn install

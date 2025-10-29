@@ -9,8 +9,8 @@ This guide provides step-by-step instructions for deploying the Quantum Market D
 ## Prerequisites
 
 - Python 3.9 or higher
-- Node.js 16 or higher
-- Yarn (installed automatically by setup scripts)
+- Node.js 16 or higher (required for Yarn installation)
+- Yarn (installed automatically by setup scripts if Node.js is present)
 - 4GB+ RAM recommended
 - Linux/macOS/Windows
 
