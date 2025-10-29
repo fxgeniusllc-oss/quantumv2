@@ -28,8 +28,8 @@ class DeFiStrategyEngine:
         
         # Initialize Web3 providers
         self.w3_providers = {
-            chain: Web3(Web3.HTTPProvider(details['rpc_url'])) 
-            for chain, details in config.CHAINS.items()
+            chain: Web3(Web3.HTTPProvider(details['rpc_url']))
+            for chain, details in config.get_blockchain_config().items()
         }
         
         self.opportunities = []
