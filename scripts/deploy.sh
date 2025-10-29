@@ -61,6 +61,12 @@ install_dependencies() {
         error "Failed to install system dependencies"
     fi
     
+    # Install Yarn globally if not present
+    if ! command -v yarn &> /dev/null; then
+        log "Installing Yarn..."
+        npm install -g yarn
+    fi
+    
     # Clean up
     apt-get clean && rm -rf /var/lib/apt/lists/*
     
@@ -69,8 +75,8 @@ install_dependencies() {
         error "Failed to install Python dependencies"
     fi
     
-    log "Installing Node.js dependencies..."
-    cd "$APP_DIR" && npm install
+    log "Installing Node.js dependencies with Yarn..."
+    cd "$APP_DIR" && yarn install
 }
 
 # Setup environment

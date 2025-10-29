@@ -42,10 +42,18 @@ pip install --upgrade pip
 echo "Installing Python dependencies..."
 pip install -r requirements.txt
 
-# Install Node.js dependencies
-if command -v npm &> /dev/null; then
-    echo "Installing Node.js dependencies..."
-    npm install
+# Install Yarn if not present
+if command -v node &> /dev/null; then
+    if ! command -v yarn &> /dev/null; then
+        echo "Installing Yarn..."
+        npm install -g yarn
+    fi
+fi
+
+# Install Node.js dependencies with Yarn
+if command -v yarn &> /dev/null; then
+    echo "Installing Node.js dependencies with Yarn..."
+    yarn install
 fi
 
 # Create necessary directories
