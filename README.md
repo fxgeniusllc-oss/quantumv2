@@ -8,12 +8,124 @@ The Quantum Market Domination System is a comprehensive trading platform that co
 
 ## Features
 
+### Core Trading Features
+
 - **Multi-Exchange Integration**: Simultaneous connections to 6+ major exchanges (Binance, Bybit, OKX, KuCoin, Huobi, Kraken)
+  - Unified API through CCXT library
+  - Exchange-specific configurations
+  - Rate limiting and connection management
+  
 - **Real-Time Data Processing**: Sub-millisecond WebSocket streaming with quantum compression
+  - Auto-reconnection with exponential backoff
+  - Message compression (gzip, zlib, brotli, lz4)
+  - Multi-channel subscription management
+  
 - **Machine Learning Intelligence**: Advanced ML models for price prediction, volatility analysis, and anomaly detection
+  - Price Predictor: RandomForest with 500 estimators
+  - Volatility Model: Multi-window analysis with 300 estimators
+  - Anomaly Detector: IsolationForest with 95% confidence interval
+  - 15+ technical indicators (RSI, MACD, Bollinger Bands, ATR, etc.)
+  
 - **Risk Management**: Comprehensive risk controls with position sizing and dynamic stop-loss mechanisms
+  - 4 position sizing algorithms: Fixed Risk, Kelly Criterion, Volatility-Adjusted, Optimal F
+  - Global risk limits and per-position limits
+  - Automatic liquidation thresholds
+  - Portfolio heat tracking
+  - Stop-loss and take-profit automation
+  
 - **Security First**: Military-grade encryption for credentials and sensitive data
+  - Fernet symmetric encryption for credentials
+  - Hardware-based key generation
+  - Secure vault storage for API keys
+  - AES-256 encryption utilities
+  
 - **System Monitoring**: Real-time health tracking with multi-dimensional alerts
+  - CPU, Memory, GPU monitoring
+  - Network latency tracking
+  - Disk I/O monitoring
+  - Temperature sensors
+  - Multi-channel alerts (Logs, Slack, Email)
+
+### Intelligence & Analytics
+
+- **Correlation Engine**: Cross-market correlation analysis
+  - Pearson and Spearman correlations
+  - Lead-lag relationship detection
+  - Correlation clustering
+  - Network visualization
+
+- **Predictive Surface Mapping**: 3D market surface modeling
+  - Gaussian Process modeling
+  - Trajectory prediction
+  - Optimal region identification
+  - Uncertainty quantification
+
+- **Opportunity Evaluator**: Multi-strategy opportunity detection
+  - Trend following strategies
+  - Breakout detection
+  - Reversal identification
+  - Volatility-based strategies
+  - Comprehensive scoring system
+
+### Execution & Trading
+
+- **Trade Executor**: Multi-exchange order execution
+  - Market order execution
+  - Limit order placement
+  - Order cancellation and status tracking
+  - Strategy signal integration
+
+- **Position Sizer**: Dynamic position sizing
+  - Multiple sizing algorithms
+  - Pyramiding strategies
+  - Scale-out strategies (equal, decreasing, increasing)
+  - Risk-adjusted sizing
+
+- **Performance Tracker**: Comprehensive performance analytics
+  - Trade recording and P&L tracking
+  - Win rate and profit factor calculation
+  - Sharpe ratio and drawdown analysis
+  - Maximum drawdown tracking
+
+### Monitoring & Compliance
+
+- **Alert System**: Multi-channel alert dispatch
+  - Alert levels (INFO, WARNING, CRITICAL)
+  - Multiple alert types (SYSTEM, PRICE, RISK, PERFORMANCE)
+  - Slack, Email, and custom webhook integration
+  - Alert history and tracking
+
+- **Compliance Checker**: Regulatory compliance monitoring
+  - Position limit enforcement
+  - Leverage restriction validation
+  - Trading hour restrictions
+  - Wash sale detection
+  - Risk exposure limits
+
+### DeFi Capabilities
+
+- **Multi-Chain Support**: Ethereum, Polygon integration
+- **Flashloan Aggregation**: Aave V3, dYdX, Compound support
+- **MEV Extraction**: Flashbots integration for transaction bundling
+- **Smart Contract Execution**: Solidity flashloan aggregator
+- **Gas Price Prediction**: ML-powered gas optimization
+- **Arbitrage Detection**: Cross-exchange and cross-chain opportunities
+
+### Utilities & Infrastructure
+
+- **Data Compression**: Multiple compression algorithms
+  - gzip, zlib, brotli, lz4 support
+  - Compression statistics and benchmarking
+  
+- **Distributed Locking**: Coordination across distributed systems
+  - Lock acquisition and release
+  - Auto-renewal mechanisms
+  - Lock manager for multiple resources
+  
+- **Encryption Utilities**: Advanced cryptographic operations
+  - Data encryption and decryption
+  - Secure hashing (SHA-256, SHA-512)
+  - Key derivation functions
 
 ## Architecture
 
@@ -57,6 +169,378 @@ quantum_market_domination/
     ├── compression.py          # Data compression techniques
     └── distributed_lock.py     # Distributed locking mechanism
 ```
+
+## Complete File & Script Reference
+
+### Entry Points & Main Scripts
+
+#### `main.py` - Quantum Trading System
+Main application entry point for the trading system with full orchestration of all modules.
+
+**Class:** `QuantumTradingSystem`
+- Initializes and coordinates all system components
+- Manages system lifecycle (start, monitor, shutdown)
+- Provides graceful shutdown with performance metrics
+
+**Usage:**
+```bash
+python main.py
+```
+
+#### `defi_main.py` - DeFi Strategy Application
+Entry point for DeFi-specific trading strategies and protocols.
+
+**Usage:**
+```bash
+python defi_main.py
+```
+
+#### `setup.sh` - Environment Setup Script
+Automated setup script for development environment configuration.
+
+**Features:**
+- Creates Python virtual environment
+- Installs all dependencies (Python & Node.js)
+- Sets up directory structure
+- Creates `.env` from template
+- Configures pre-commit hooks
+- Runs initial test suite
+
+**Usage:**
+```bash
+./setup.sh
+```
+
+#### `deploy.sh` - Deployment Automation Script
+Production deployment script with Docker orchestration.
+
+**Features:**
+- Environment validation (development/staging/production)
+- Docker image building
+- Container orchestration
+- Health checks
+- Service monitoring
+
+**Usage:**
+```bash
+./deploy.sh [environment] [version]
+# Examples:
+./deploy.sh development latest
+./deploy.sh production v1.0.0
+```
+
+#### `validate_readme.py` - README Validation Tool
+Validates README documentation against actual codebase.
+
+**Class:** `ReadmeValidator`
+- Validates module references
+- Checks file existence
+- Verifies code examples
+
+**Usage:**
+```bash
+python validate_readme.py
+```
+
+#### `final_validation.py` - System Validation Script
+Comprehensive system validation and testing.
+
+**Usage:**
+```bash
+python final_validation.py
+```
+
+### Configuration Files
+
+#### `requirements.txt` - Python Dependencies
+Core Python package dependencies:
+- `asyncio` - Async programming support
+- `numpy>=1.24.0` - Numerical computing
+- `pandas>=2.0.0` - Data analysis
+- `ccxt>=4.0.0` - Exchange connectivity
+- `websockets>=11.0` - WebSocket support
+- `scikit-learn>=1.3.0` - Machine learning
+- `cryptography>=41.0.0` - Security & encryption
+- `web3>=6.0.0` - Blockchain interaction
+- `psutil>=5.9.0` - System monitoring
+- `pytest>=7.4.0` - Testing framework
+
+#### `package.json` - Node.js Dependencies
+DeFi and blockchain-specific JavaScript packages:
+- `ethers` - Ethereum library
+- `@flashbots/ethers-provider-bundle` - MEV extraction
+- `web3` - Web3 provider
+- `dotenv` - Environment management
+
+#### `.env.example` - Environment Template
+Template for environment variables including:
+- Exchange API keys and secrets
+- Blockchain RPC URLs
+- Risk parameters
+- System configuration
+
+#### `docker-compose.yml` - Container Orchestration
+Docker Compose configuration for multi-container deployment.
+
+#### `Dockerfile` - Container Definition
+Multi-stage Docker build configuration for production deployment.
+
+### Core Module Files
+
+#### `quantum_market_domination/core/config_manager.py`
+**Class:** `QuantumConfigManager`
+**Key Methods:**
+- `get_exchange_credentials()` - Secure credential retrieval
+- `get_module_config()` - Module configuration access
+- `get_alert_threshold()` - Alert threshold configuration
+
+#### `quantum_market_domination/core/secret_vault.py`
+**Class:** `SecretVault`
+**Key Methods:**
+- `store_credentials()` - Encrypted credential storage
+- `get_credentials()` - Secure credential retrieval
+- `_generate_or_load_master_key()` - Master key management
+
+#### `quantum_market_domination/core/system_monitor.py`
+**Classes:** `SystemMetrics`, `QuantumSystemMonitor`
+**Key Methods:**
+- `monitor_system()` - Continuous system monitoring
+- `_collect_metrics()` - System metrics collection
+- `_check_system_health()` - Health validation
+- `get_metrics_summary()` - Metrics aggregation
+
+### Data Acquisition Files
+
+#### `quantum_market_domination/data_acquisition/quantum_collector.py`
+**Class:** `QuantumMarketDominationCollector`
+**Key Methods:**
+- `quantum_websocket_stream()` - Real-time WebSocket streaming
+- `execute_quantum_strategy()` - Strategy execution
+- `_trigger_market_intelligence()` - Intelligence activation
+- `_correlation_analysis()` - Market correlation detection
+- `_anomaly_detection()` - Anomaly detection
+- `_predictive_surface_mapping()` - Predictive modeling
+- `get_market_intelligence_summary()` - Intelligence summary
+
+#### `quantum_market_domination/data_acquisition/websocket_manager.py`
+**Classes:** `WebSocketConfig`, `WebSocketManager`
+**Key Methods:**
+- `connect()` - WebSocket connection
+- `subscribe()` - Channel subscription
+- `_auto_reconnect()` - Automatic reconnection
+- `get_statistics()` - Connection statistics
+
+#### `quantum_market_domination/data_acquisition/data_preprocessor.py`
+**Class:** `DataPreprocessor`
+**Key Methods:**
+- `preprocess()` - Data preprocessing pipeline
+- `calculate_indicators()` - Technical indicator calculation
+- `clean_data()` - Data cleaning
+- `normalize_data()` - Data normalization
+
+### Intelligence Module Files
+
+#### `quantum_market_domination/intelligence/ml_models/price_predictor.py`
+**Class:** `PricePredictor`
+**Key Methods:**
+- `train()` - Model training
+- `predict()` - Price prediction
+- `evaluate()` - Model evaluation
+
+#### `quantum_market_domination/intelligence/ml_models/volatility_model.py`
+**Class:** `VolatilityModel`
+**Key Methods:**
+- `train()` - Volatility model training
+- `predict()` - Volatility prediction
+- `calculate_multi_window()` - Multi-timeframe analysis
+
+#### `quantum_market_domination/intelligence/ml_models/anomaly_detector.py`
+**Class:** `AnomalyDetector`
+**Key Methods:**
+- `train()` - Anomaly model training
+- `detect()` - Anomaly detection
+- `calculate_anomaly_score()` - Anomaly scoring
+
+#### `quantum_market_domination/intelligence/correlation_engine.py`
+**Class:** `CorrelationEngine`
+**Key Methods:**
+- `calculate_correlations()` - Cross-market correlation
+- `identify_lead_lag()` - Lead-lag relationships
+- `find_correlation_clusters()` - Correlation clustering
+
+#### `quantum_market_domination/intelligence/predictive_surface.py`
+**Class:** `PredictiveSurface`
+**Key Methods:**
+- `build_surface()` - 3D surface construction
+- `predict_trajectory()` - Price trajectory prediction
+- `find_optimal_regions()` - Optimal trading regions
+
+#### `quantum_market_domination/intelligence/opportunity_evaluator.py`
+**Class:** `OpportunityEvaluator`
+**Key Methods:**
+- `evaluate_trend_opportunity()` - Trend analysis
+- `evaluate_breakout_opportunity()` - Breakout detection
+- `evaluate_reversal_opportunity()` - Reversal identification
+- `evaluate_all_opportunities()` - Comprehensive evaluation
+- `get_best_opportunity()` - Best opportunity selection
+
+### Execution Module Files
+
+#### `quantum_market_domination/execution/trade_executor.py`
+**Class:** `TradeExecutor`
+**Key Methods:**
+- `execute_market_order()` - Market order execution
+- `execute_limit_order()` - Limit order placement
+- `cancel_order()` - Order cancellation
+- `get_order_status()` - Order status checking
+- `execute_strategy_signal()` - Strategy signal execution
+
+#### `quantum_market_domination/execution/risk_manager.py`
+**Classes:** `RiskLimits`, `RiskManager`
+**Key Methods:**
+- `calculate_position_size()` - Position size calculation
+- `can_open_position()` - Risk validation
+- `open_position()` - Position opening
+- `update_position()` - Position updates
+- `close_position()` - Position closing
+- `get_performance_metrics()` - Performance tracking
+
+#### `quantum_market_domination/execution/position_sizer.py`
+**Class:** `PositionSizer`
+**Key Methods:**
+- `calculate_position_size()` - Dynamic position sizing
+- `calculate_pyramid_sizes()` - Pyramiding strategy
+- `calculate_scale_out_levels()` - Exit strategy calculation
+
+### Monitoring Module Files
+
+#### `quantum_market_domination/monitoring/performance_tracker.py`
+**Class:** `PerformanceTracker`
+**Key Methods:**
+- `record_trade()` - Trade recording
+- `calculate_metrics()` - Metrics calculation
+- `get_performance_report()` - Performance reporting
+
+#### `quantum_market_domination/monitoring/alert_system.py`
+**Classes:** `AlertLevel`, `AlertType`, `AlertSystem`
+**Key Methods:**
+- `send_alert()` - Alert dispatch
+- `configure_channel()` - Channel configuration
+- `get_alert_history()` - Alert history retrieval
+
+#### `quantum_market_domination/monitoring/compliance_checker.py`
+**Classes:** `ComplianceRule`, `ComplianceStatus`, `ComplianceChecker`
+**Key Methods:**
+- `check_compliance()` - Compliance validation
+- `check_position_limits()` - Position limit checking
+- `check_risk_exposure()` - Risk exposure validation
+
+### Utility Files
+
+#### `quantum_market_domination/utils/encryption.py`
+**Class:** `EncryptionUtils`
+**Key Methods:**
+- `encrypt()` - Data encryption
+- `decrypt()` - Data decryption
+- `hash_data()` - Data hashing
+
+#### `quantum_market_domination/utils/compression.py`
+**Class:** `DataCompressor`
+**Key Methods:**
+- `compress()` - Data compression
+- `decompress()` - Data decompression
+- `get_compression_stats()` - Compression statistics
+
+#### `quantum_market_domination/utils/distributed_lock.py`
+**Classes:** `DistributedLock`, `LockManager`
+**Key Methods:**
+- `acquire()` - Lock acquisition
+- `release()` - Lock release
+- `is_locked()` - Lock status check
+
+### DeFi Module Files
+
+#### `ultimate-defi-domination/core/config.py`
+**Class:** `DominanceConfig`
+Configuration for DeFi protocols including:
+- Blockchain chain configurations
+- Liquidity pool targets
+- Flashloan configurations
+- Risk parameters
+
+#### `ultimate-defi-domination/core/secrets.py`
+**Class:** `SecretManager`
+**Key Methods:**
+- `encrypt()` - Secret encryption
+- `decrypt()` - Secret decryption
+- `load_private_keys()` - Private key management
+
+#### `ultimate-defi-domination/engines/python_engine/strategy_engine.py`
+**Class:** `StrategyEngine`
+**Key Methods:**
+- `detect_arbitrage_opportunities()` - Arbitrage detection
+- `predict_gas_prices()` - Gas price prediction
+- `simulate_trade()` - Trade simulation
+- `execute_strategy()` - Strategy execution
+
+#### `ultimate-defi-domination/engines/node_engine/tx_executor.js`
+**Class:** `TransactionExecutor`
+**Key Methods:**
+- `initFlashbotsProvider()` - Flashbots initialization
+- `submitBundle()` - Transaction bundle submission
+
+### Smart Contracts
+
+#### `contracts/flashloan_aggregator.sol`
+Solidity smart contract for flashloan aggregation across multiple DeFi protocols.
+
+**Key Functions:**
+- `executeOperation()` - Flashloan callback execution
+- `initiateFlashloan()` - Flashloan initiation
+
+### Test Files
+
+#### `tests/test_core.py`
+Core module tests including:
+- ConfigManager tests
+- SecretVault tests
+- SystemMonitor tests
+
+#### `tests/test_ml_models.py`
+Machine learning model tests:
+- PricePredictor tests
+- VolatilityModel tests
+- AnomalyDetector tests
+
+#### `tests/test_risk_manager.py`
+Risk management tests:
+- Position sizing validation
+- Risk limit enforcement
+- Performance tracking
+
+#### `tests/test_advanced_features.py`
+Advanced feature tests:
+- WebSocket manager tests
+- Data preprocessor tests
+- Correlation engine tests
+- Predictive surface tests
+
+#### `tests/test_integration.py`
+End-to-end integration tests:
+- Complete system workflow tests
+- Multi-module interaction tests
+- Performance validation tests
+
+### Documentation Files
+
+- `README.md` - Main documentation (this file)
+- `QUICKSTART.md` - Quick start guide
+- `BUILD_AND_TEST.md` - Build and testing instructions
+- `DEPLOYMENT.md` - Deployment guide
+- `FEATURE_SUMMARY.md` - Implemented features summary
+- `IMPLEMENTATION_SUMMARY.md` - Implementation details
+- `SYSTEM_EVALUATION_REPORT.md` - System evaluation results
+- `COMPLETION_REPORT.md` - Project completion report
 
 ## Core Modules
 
@@ -899,36 +1383,296 @@ STOP_LOSS_THRESHOLD=0.10
 
 ## Usage
 
-### Running the Quantum Collector
+### Quick Start
+
+#### 1. Environment Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/fxgeniusllc-oss/quantumv2.git
+cd quantumv2
+
+# Run setup script (installs dependencies, creates environment)
+./setup.sh
+```
+
+#### 2. Configure Environment
+
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your configuration
+nano .env
+```
+
+Add your exchange API keys and configuration:
+```env
+# Exchange API Keys
+BINANCE_API_KEY=your_key
+BINANCE_SECRET=your_secret
+BYBIT_API_KEY=your_key
+BYBIT_SECRET=your_secret
+
+# Blockchain RPC URLs
+ETH_RPC_URL=https://mainnet.infura.io/v3/your_key
+POLYGON_RPC_URL=https://polygon-rpc.com
+
+# Risk Parameters
+MAX_SINGLE_TRADE_RISK=0.05
+TOTAL_PORTFOLIO_RISK=0.15
+STOP_LOSS_THRESHOLD=0.10
+```
+
+#### 3. Run the System
+
+**Option A: Quantum Trading System (CeFi)**
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Run the main trading system
+python main.py
+```
+
+**Option B: DeFi Strategy System**
+```bash
+# Run DeFi strategies
+python defi_main.py
+```
+
+**Option C: Docker Deployment**
+```bash
+# Deploy using Docker
+./deploy.sh development latest
+
+# Or use docker-compose directly
+docker-compose up -d
+```
+
+### Running Individual Modules
+
+#### System Validation
+```bash
+# Run comprehensive system validation
+python final_validation.py
+
+# Validate README documentation
+python validate_readme.py
+```
+
+#### Running Tests
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run specific test files
+pytest tests/test_core.py -v
+pytest tests/test_ml_models.py -v
+pytest tests/test_integration.py -v
+
+# Run with coverage
+pytest tests/ --cov=quantum_market_domination --cov-report=html
+```
+
+### Script Reference
+
+#### `setup.sh` - Environment Setup
+```bash
+./setup.sh
+
+# What it does:
+# - Checks Python and Node.js versions
+# - Creates virtual environment
+# - Installs all dependencies
+# - Creates necessary directories (secrets, logs, data)
+# - Sets up pre-commit hooks
+# - Runs initial test suite
+```
+
+#### `deploy.sh` - Production Deployment
+```bash
+# Deploy to development environment
+./deploy.sh development latest
+
+# Deploy to staging
+./deploy.sh staging v1.0.0
+
+# Deploy to production
+./deploy.sh production v1.0.0
+
+# What it does:
+# - Validates environment
+# - Builds Docker images
+# - Stops existing containers
+# - Starts services
+# - Runs health checks
+```
+
+#### `scripts/deploy.sh` - Alternative Deployment Script
+```bash
+cd scripts
+./deploy.sh
+```
+
+### Using the Quantum Trading System
+
+#### Basic Usage (Python)
 
 ```python
 import asyncio
-from quantum_market_domination.quantum_collector import QuantumMarketDominationCollector
-from quantum_market_domination.config import QuantumConfigManager
+from quantum_market_domination.core.config_manager import QuantumConfigManager
+from quantum_market_domination.core.system_monitor import QuantumSystemMonitor
+from quantum_market_domination.data_acquisition.quantum_collector import QuantumMarketDominationCollector
 
 async def main():
+    # Initialize configuration
     config = QuantumConfigManager()
+    
+    # Initialize collector
     collector = QuantumMarketDominationCollector(config)
     
-    symbols = ['BTC/USDT', 'ETH/USDT', 'XRP/USDT']
+    # Define symbols to trade
+    symbols = ['BTC/USDT', 'ETH/USDT', 'XRP/USDT', 'DOGE/USDT', 'ADA/USDT']
+    
+    # Execute strategy (runs indefinitely)
     await collector.execute_quantum_strategy(symbols)
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-### Starting System Monitor
+#### Advanced Usage with Custom Parameters
+
+```python
+import asyncio
+from main import QuantumTradingSystem
+
+async def main():
+    # Initialize system
+    system = QuantumTradingSystem()
+    
+    # Custom symbol list
+    symbols = ['BTC/USDT', 'ETH/USDT']
+    
+    # Run for specific duration (in seconds)
+    duration = 3600  # Run for 1 hour
+    
+    # Start system
+    await system.start(symbols=symbols, duration=duration)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+#### Monitoring System Health
 
 ```python
 import asyncio
 from quantum_market_domination.core.system_monitor import QuantumSystemMonitor
 
 async def monitor():
+    # Initialize monitor with custom alert threshold
     monitor = QuantumSystemMonitor(alert_threshold=0.85)
+    
+    # Start monitoring with 5-second intervals
     await monitor.monitor_system(interval=5)
 
 if __name__ == "__main__":
     asyncio.run(monitor())
+```
+
+### Using DeFi Components
+
+#### Running DeFi Strategies
+
+```python
+import asyncio
+from ultimate-defi-domination.core.config import DominanceConfig
+from ultimate-defi-domination.engines.python_engine.strategy_engine import StrategyEngine
+
+async def main():
+    # Initialize configuration
+    config = DominanceConfig()
+    
+    # Initialize strategy engine
+    strategy = StrategyEngine(config)
+    
+    # Execute strategy for 60 seconds
+    await strategy.execute_strategy(duration=60)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+#### Node.js Transaction Executor
+
+```javascript
+const TransactionExecutor = require('./ultimate-defi-domination/engines/node_engine/tx_executor');
+const DominanceConfig = require('./ultimate-defi-domination/core/config');
+
+async function main() {
+    const config = new DominanceConfig();
+    const executor = new TransactionExecutor(config);
+    
+    // Submit transaction bundle
+    const transactions = [/* your transactions */];
+    const result = await executor.submitBundle('ethereum', transactions);
+    
+    console.log('Bundle result:', result);
+}
+
+main().catch(console.error);
+```
+
+### Testing & Validation
+
+#### Run Complete Test Suite
+```bash
+# All tests with verbose output
+pytest tests/ -v --tb=short
+
+# With coverage report
+pytest tests/ --cov=quantum_market_domination --cov-report=html
+
+# Specific test categories
+pytest tests/test_core.py -v          # Core modules
+pytest tests/test_ml_models.py -v     # ML models
+pytest tests/test_risk_manager.py -v  # Risk management
+pytest tests/test_advanced_features.py -v  # Advanced features
+pytest tests/test_integration.py -v   # Integration tests
+```
+
+#### System Validation
+```bash
+# Comprehensive validation
+python final_validation.py
+
+# README validation
+python validate_readme.py
+```
+
+### Docker Commands
+
+```bash
+# Build and start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# View specific service logs
+docker-compose logs -f quantum-trader
+
+# Stop services
+docker-compose down
+
+# Restart services
+docker-compose restart
+
+# Rebuild images
+docker-compose build --no-cache
+docker-compose up -d
 ```
 
 ## Risk Management
